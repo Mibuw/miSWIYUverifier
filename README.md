@@ -20,8 +20,10 @@ Status: **tested end-to-end** with the real swiyu app + Beta-ID (July 2026).
 A public test instance is available at **http://miswiyuverifier.mitterbucher.com:5070/** —
 open it, scan the QR code with your swiyu app and confirm.
 
+> **No guarantee of availability** — this endpoint may be offline at any time.
+> To run your own instance, see the [Quick start](#quick-start) below.
+
 - You need the **swiyu app** with a **Beta-ID** (free, self-issued — see step 1 below).
-- Runs on a development machine — **no 24/7 availability guaranteed**.
 - Every visitor gets **their own verification session** (own QR code); any number of
   verifications can run in parallel. "New request" starts a fresh verification anytime.
 - The demo page itself is served over plain HTTP; this is acceptable because the Beta-ID
@@ -83,6 +85,12 @@ open it, scan the QR code with your swiyu app and confirm.
 7. A **public HTTPS URL** (step 3 — own domain or tunnel)
 
 ---
+
+## Quick start
+
+Five steps from zero to a running verifier — issue a Beta-ID (1), onboard your
+verifier DID (2), expose the OID4VP endpoint via HTTPS (3), start the
+swiyu-verifier container (4) and run the web app (5).
 
 ## Step 1: Issue a Beta-ID (once, 5 minutes)
 
