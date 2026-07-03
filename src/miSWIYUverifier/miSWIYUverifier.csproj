@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>miSWIYUverifier</AssemblyName>
+    <RootNamespace>miSWIYUverifier</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Alle Services, Models und Config kommen aus der Core-Library -->
+    <ProjectReference Include="..\miSWIYUverifier.Core\miSWIYUverifier.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

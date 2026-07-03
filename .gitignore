@@ -1,0 +1,31 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+
+# Visual Studio
+.vs/
+*.user
+
+# Zertifikate & Schlüsselmaterial — niemals ins Repo
+Cert/
+.didtoolbox/
+*.pfx
+*.pem
+*.key
+*.crt
+*.p12
+docker/.env
+
+# DID-Toolbox (43 MB JAR, Download siehe README)
+tools/didtoolbox.jar
+tools/didtoolbox-stderr.txt
+
+# Lokale Deployment-Dateien mit realen Werten — im Repo liegen nur Vorlagen
+# (proxy/Caddyfile.example; didlog.jsonl wird von der DID-Toolbox erzeugt)
+proxy/Caddyfile
+didlog.jsonl
+
+# Claude-lokale Dateien
+.claude/

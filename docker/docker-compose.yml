@@ -1,0 +1,73 @@
+# swiyu-verifier (Schweizer E-ID Public Beta) + PostgreSQL
+#
+# Vorbereitung:
+#   1. docker/.env aus docker/.env.example erstellen und Werte eintragen
+#      (VERIFIER_DID, DID_VERIFICATION_METHOD, SIGNING_KEY, EXTERNAL_URL)
+#   2. docker compose up -d
+#
+# Danach:
+#   Management-API : http://localhost:8083  (nur intern — NIE öffentlich exponieren!)
+#   Swagger-UI     : http://localhost:8083/swagger-ui/index.html
+#   OID4VP-API     : muss über EXTERNAL_URL öffentlich per HTTPS erreichbar sein
+#                    (z.B. Tunnel: cloudflared tunnel --url http://localhost:8083)
+
+name: miswiyuverifier
+
+services:
+  verifier_postgres:
+    image: postgres:15-alpine
+    container_name: miSWIYUverifier-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "verifier_user"
+      POSTGRES_PASSWORD: "secret"
+      POSTGRES_DB: "verifier_db"
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U verifier_user -d verifier_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  verifier-service:
+    # Version pinnen: der "latest"-Tag zeigt (Stand 2026-07) noch auf 2.x,
+    # das nur das alte presentation_definition-Format kennt. Ab 3.0.0 gilt DCQL.
+    image: ghcr.io/swiyu-admin-ch/swiyu-verifier:3.0.3
+    container_name: miSWIYUverifier-verifier
+    restart: unless-stopped
+    depends_on:
+      verifier_postgres:
+        condition: service_healthy
+    configs:
+      - source: verifier_metadata
+        target: /verifier_metadata.json
+    ports:
+      - "8083:8080"
+    environment:
+      EXTERNAL_URL: ${EXTERNAL_URL}
+      OPENID_CLIENT_METADATA_FILE: file:/verifier_metadata.json
+      VERIFIER_DID: ${VERIFIER_DID}
+      DID_VERIFICATION_METHOD: ${DID_VERIFICATION_METHOD}
+      SIGNING_KEY: ${SIGNING_KEY}
+      VERIFICATION_TTL_SEC: ${VERIFICATION_TTL_SEC:-900}
+      # Persistence
+      POSTGRES_USER: "verifier_user"
+      POSTGRES_PASSWORD: "secret"
+      POSTGRES_DB: "verifier_db"
+      POSTGRES_JDBC: "jdbc:postgresql://verifier_postgres:5432/verifier_db"
+
+configs:
+  verifier_metadata:
+    content: |
+      {
+        "client_id": "${VERIFIER_DID}",
+        "client_name#de": "miSWIYUverifier",
+        "client_name#en": "miSWIYUverifier",
+        "client_name": "miSWIYUverifier",
+        "vp_formats": {
+          "jwt_vp": {
+            "alg": [ "ES256" ]
+          }
+        }
+      }
