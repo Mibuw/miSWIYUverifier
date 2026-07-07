@@ -7,13 +7,13 @@
     <AssemblyName>miSWIYUverifier.Core</AssemblyName>
     <RootNamespace>miSWIYUverifier</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- XML-Doku ist optional pro Member — CS1591 (fehlender Kommentar) nicht melden -->
+    <!-- XML docs are optional per member — do not report CS1591 (missing comment) -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <Description>Swiyu (Swiss E-ID Public Beta) Verifier Core – Beta-ID-Verifikation über die swiyu-verifier Management-API</Description>
+    <Description>Swiyu (Swiss E-ID Public Beta) verifier core – Beta-ID verification via the swiyu-verifier management API</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- QR-Code-Generierung -->
+    <!-- QR code generation -->
     <PackageReference Include="QRCoder" Version="1.6.0" />
     <!-- DI / Options / Logging (Abstractions) -->
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />

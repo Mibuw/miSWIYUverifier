@@ -386,7 +386,7 @@ public static class HtmlPage
             <h1>miSWIYUverifier</h1>
             <p class="subtitle">___SUBTITLE___</p>
 
-            <!-- QR Code (wird per JS aus der eigenen Session geladen) -->
+            <!-- QR code (loaded via JS from the visitor's own session) -->
             <div id="qr-section">
               <div class="qr-wrap">
                 <img id="qr-img" alt="swiyu verification QR code" />
@@ -451,7 +451,7 @@ public static class HtmlPage
             const T = ___T_JSON___;
             const el = id => document.getElementById(id);
 
-            // Jeder Besucher bekommt seine eigene Verification-Session.
+            // Every visitor gets their own verification session.
             let currentId = null;
             let finished  = false;
             let creating  = false;
@@ -541,7 +541,7 @@ public static class HtmlPage
               try {
                 const resp = await fetch('/api/verification/' + currentId + '/status');
 
-                // Session/Verification abgelaufen (TTL erreicht)
+                // Session/verification expired (TTL reached)
                 if (resp.status === 404) { showError(T.errorPrefix + T.expired); return; }
 
                 const d = await resp.json();

@@ -5,7 +5,7 @@ using miSWIYUverifier.WebServer;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-// ── 1. WebApplication aufbauen ────────────────────────────────────────────────
+// ── 1. Build the WebApplication ───────────────────────────────────────────────
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables("SWIYU_");
 builder.Logging
@@ -34,9 +34,9 @@ var verifier = app.Services.GetRequiredService<VerifierApiService>();
 Console.WriteLine("\n  miSWIYUverifier – Starte ...");
 Console.WriteLine($"  Management-API  : {settings.ManagementUrl}");
 
-// ── 2. Session-Verwaltung ─────────────────────────────────────────────────────
-// Jede Verification ist eine eigene Session (UI und REST-API nutzen denselben
-// Store) — beliebig viele Besucher können parallel verifizieren.
+// ── 2. Session management ─────────────────────────────────────────────────────
+// Every verification is its own session (UI and REST API share the same store) —
+// any number of visitors can verify in parallel.
 
 var sessions = new VerificationSessionStore();
 
@@ -84,20 +84,20 @@ async Task<VerificationSession> CreateSessionAsync(CancellationToken ct)
     return session;
 }
 
-// ── 3. Web-Routen ─────────────────────────────────────────────────────────────
+// ── 3. Web routes ─────────────────────────────────────────────────────────────
 
-// UI: statische Seite; holt sich ihre Session selbst über die REST-API
+// UI: static page; creates its own session via the REST API
 app.MapGet("/", (HttpRequest request) =>
     Results.Content(
         HtmlPage.Render(request.Headers.AcceptLanguage.ToString()),
         "text/html; charset=utf-8"));
 
-// REST-API (session-basiert):
-// POST /api/verification              → neue Verification (id, deepLink, QR)
-// GET  /api/verification/{id}/qrcode  → QR-Code als PNG
+// REST API (session based):
+// POST /api/verification              → new verification (id, deepLink, QR)
+// GET  /api/verification/{id}/qrcode  → QR code as PNG
 // GET  /api/verification/{id}/status  → waiting | complete | partial | error
-// GET  /api/verification/{id}/data    → verifizierte Identitätsdaten
-// DELETE /api/verification/{id}       → Session verwerfen
+// GET  /api/verification/{id}/data    → verified identity data
+// DELETE /api/verification/{id}       → discard the session
 
 app.MapPost("/api/verification", async () =>
 {
@@ -135,7 +135,7 @@ app.MapGet("/api/verification/{id}/data", (string id) =>
 
     return session.Status switch
     {
-        // 202: Wallet-Antwort steht noch aus — später erneut abfragen
+        // 202: wallet response still pending — poll again later
         "waiting" => Results.Json(new { id = session.Id, status = session.Status },
                                   statusCode: 202),
         "error"   => Results.Json(new { id = session.Id, status = session.Status, error = session.ErrorMessage },
@@ -147,8 +147,8 @@ app.MapGet("/api/verification/{id}/data", (string id) =>
 app.MapDelete("/api/verification/{id}", (string id) =>
     sessions.Remove(id) ? Results.NoContent() : Results.NotFound());
 
-// Debug-Endpunkt zeigt Identitaetsdaten + Roh-Response → nur von localhost erlaubt
-// (die Seite selbst ist ueber Port-Forwarding oeffentlich erreichbar)
+// The debug endpoint exposes identity data + raw response → localhost only
+// (the page itself is publicly reachable via port forwarding)
 app.MapGet("/api/debug/{id}", (string id, HttpContext ctx) =>
 {
     var remote = ctx.Connection.RemoteIpAddress;
@@ -169,11 +169,11 @@ app.MapGet("/api/debug/{id}", (string id, HttpContext ctx) =>
     });
 });
 
-// ── 4. Starten ────────────────────────────────────────────────────────────────
-// Kestrel liest Endpoints + Zertifikat direkt aus appsettings.json
-// (Kestrel:Endpoints übersteuert app.Urls – kein app.Urls.Add() nötig)
+// ── 4. Run ────────────────────────────────────────────────────────────────────
+// Kestrel reads endpoints + certificate directly from appsettings.json
+// (Kestrel:Endpoints overrides app.Urls – no app.Urls.Add() needed)
 
-// LAN-IP ermitteln
+// Determine the LAN IP
 var lanIp = System.Net.NetworkInformation.NetworkInterface
     .GetAllNetworkInterfaces()
     .Where(n => n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up
@@ -183,7 +183,7 @@ var lanIp = System.Net.NetworkInformation.NetworkInterface
     .Select(a => a.Address.ToString())
     .FirstOrDefault();
 
-// Fallback-Port 5070 — NICHT 5060: den blockiert Chrome als "unsafe port" (SIP)
+// Fallback port 5070 — NOT 5060: Chrome blocks that one as an "unsafe port" (SIP)
 var httpUrl  = builder.Configuration["Kestrel:Endpoints:Http:Url"]  ?? "http://0.0.0.0:5070";
 var httpsUrl = builder.Configuration["Kestrel:Endpoints:Https:Url"];
 
@@ -200,7 +200,7 @@ if (lanIp != null)
 }
 Console.WriteLine($"  Beenden    : Strg+C\n");
 
-// Browser-URL: lokale HTTPS-Adresse wenn HTTPS aktiv, sonst lokaler HTTP-Fallback
+// Browser URL: local HTTPS address if HTTPS is active, otherwise local HTTP fallback
 var browserUrl = localHttps ?? localHttp;
 try { Process.Start(new ProcessStartInfo(browserUrl) { UseShellExecute = true }); }
 catch { Console.WriteLine($"  Bitte {browserUrl} manuell im Browser oeffnen."); }

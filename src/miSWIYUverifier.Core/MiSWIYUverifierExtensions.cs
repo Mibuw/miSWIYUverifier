@@ -6,14 +6,14 @@ using Microsoft.Extensions.DependencyInjection;
 namespace miSWIYUverifier;
 
 /// <summary>
-/// Extension-Methoden für eine einfache Integration in jeden ASP.NET Core
-/// oder Generic-Host-Server.
+/// Extension methods for easy integration into any ASP.NET Core
+/// or generic-host server.
 ///
-/// Verwendung im eigenen Server:
+/// Usage in your own server:
 /// <code>
 /// builder.Services.AddMiSWIYUverifier(builder.Configuration);
 ///
-/// // Dann per DI beziehen:
+/// // Then resolve via DI:
 /// var verifier     = app.Services.GetRequiredService&lt;VerifierApiService&gt;();
 /// var verification = await verifier.CreateVerificationAsync();
 /// var qrPng        = QrCodeService.GeneratePng(verification.VerificationDeepLink!);
@@ -35,11 +35,11 @@ namespace miSWIYUverifier;
 public static class MiSWIYUverifierExtensions
 {
     /// <summary>
-    /// Registriert <see cref="VerifierApiService"/> und alle Abhängigkeiten im DI-Container.
+    /// Registers <see cref="VerifierApiService"/> and all dependencies in the DI container.
     /// </summary>
-    /// <param name="services">Der Service-Container.</param>
-    /// <param name="configuration">Die Applikations-Konfiguration (wird nach <c>VerifierSettings</c> durchsucht).</param>
-    /// <returns>Den Service-Container für Method-Chaining.</returns>
+    /// <param name="services">The service container.</param>
+    /// <param name="configuration">The application configuration (searched for <c>VerifierSettings</c>).</param>
+    /// <returns>The service container for method chaining.</returns>
     public static IServiceCollection AddMiSWIYUverifier(
         this IServiceCollection services,
         IConfiguration configuration)

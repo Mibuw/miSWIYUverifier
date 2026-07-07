@@ -19,7 +19,7 @@ public class VerifierApiService
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    // Technical SD-JWT / status-list claims that are no identity attributes.
+    // Technical SD-JWT / status-list claims that are not identity attributes.
     private static readonly HashSet<string> TechnicalClaims = new(StringComparer.OrdinalIgnoreCase)
     {
         "vct", "vct#integrity", "vct_metadata_uri", "vct_metadata_uri#integrity",
@@ -208,11 +208,11 @@ public class VerifierApiService
     // ── Step 3: Extract Identity Data ─────────────────────────────────────────
 
     /// <summary>
-    /// Extrahiert die Identitätsdaten aus <c>wallet_response.credential_subject_data</c>.
-    /// Der swiyu-verifier hat das SD-JWT bereits validiert und liefert die offengelegten
-    /// Claims — es ist kein lokales Token-Parsing nötig. Seit v3 sind die Claims nach
-    /// DCQL-Credential-ID gruppiert: <c>{ "&lt;credential-id&gt;": [ { claims… } ] }</c>;
-    /// ältere Versionen lieferten ein flaches Objekt. Beides wird unterstützt.
+    /// Extracts the identity data from <c>wallet_response.credential_subject_data</c>.
+    /// The swiyu-verifier has already validated the SD-JWT and returns the disclosed
+    /// claims — no local token parsing is needed. Since v3 the claims are grouped by
+    /// DCQL credential id: <c>{ "&lt;credential-id&gt;": [ { claims… } ] }</c>;
+    /// older versions returned a flat object. Both shapes are supported.
     /// </summary>
     public IdentityData ExtractIdentityData(VerificationResponse verification)
     {
@@ -247,8 +247,8 @@ public class VerifierApiService
             case "birth_place": identity.BirthPlace = GetStringValue(value); break;
             case "portrait":    identity.Portrait   = NormalizePortrait(GetStringValue(value)); break;
             default:
-                // Container statt Claim (z.B. DCQL-Credential-ID → [ { claims… } ]):
-                // rekursiv in Objekte und Objekt-Arrays absteigen.
+                // Container instead of a claim (e.g. DCQL credential id → [ { claims… } ]):
+                // descend recursively into objects and object arrays.
                 if (value.ValueKind == JsonValueKind.Object)
                 {
                     foreach (var claim in value.EnumerateObject())

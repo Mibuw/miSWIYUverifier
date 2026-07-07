@@ -1,28 +1,28 @@
-# Reverse Proxy für den swiyu-verifier — VORLAGE.
-# Nach proxy/Caddyfile kopieren und <PLATZHALTER> ersetzen
-# (proxy/Caddyfile ist per .gitignore vom Repo ausgeschlossen).
+# Reverse proxy for the swiyu-verifier — TEMPLATE.
+# Copy to proxy/Caddyfile and replace the <PLACEHOLDERS>
+# (proxy/Caddyfile is excluded from the repo via .gitignore).
 #
-# Terminiert TLS und leitet NUR das OID4VP-Interface weiter — die
-# Management-API (/management/*) bleibt von außen unerreichbar.
+# Terminates TLS and forwards ONLY the OID4VP interface — the
+# management API (/management/*) stays unreachable from outside.
 #
-# Start:  caddy run --config proxy\Caddyfile
+# Run:  caddy run --config proxy\Caddyfile
 
 {
-	# Kein Listener auf Port 80 (falls dort bereits ein anderer Dienst läuft;
-	# Port 80 wird vom Router ohnehin nicht weitergeleitet)
+	# No listener on port 80 (in case another service already runs there;
+	# port 80 is not forwarded by the router anyway)
 	auto_https disable_redirects
 }
 
-<DEINE-DOMAIN> {
-	# Öffentlich vertrauenswürdiges Zertifikat (z.B. Let's Encrypt) als PEM;
-	# selbstsignierte Zertifikate lehnt die swiyu App ab.
-	tls "<PFAD>/public.crt" "<PFAD>/private.key"
+<YOUR-DOMAIN> {
+	# Publicly trusted certificate (e.g. Let's Encrypt) as PEM;
+	# the swiyu app rejects self-signed certificates.
+	tls "<PATH>/public.crt" "<PATH>/private.key"
 
 	handle /oid4vp/* {
 		reverse_proxy localhost:8083
 	}
 
-	# Alles andere (inkl. /management/*) → 404
+	# Everything else (incl. /management/*) → 404
 	handle {
 		respond 404
 	}

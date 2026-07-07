@@ -4,13 +4,12 @@ using miSWIYUverifier.Models;
 namespace miSWIYUverifier.WebServer;
 
 /// <summary>
-/// A single verification started via the public REST API.
-/// Unlike <see cref="AppState"/> (which backs the single-page demo UI),
-/// many sessions can run in parallel.
+/// A single verification session; UI and REST API share the same store,
+/// so any number of sessions can run in parallel.
 /// </summary>
 public class VerificationSession
 {
-    /// <summary>Verification-ID des swiyu-verifier (zugleich Session-ID).</summary>
+    /// <summary>Verification id of the swiyu-verifier (doubles as the session id).</summary>
     public required string Id { get; init; }
 
     public required string DeepLink { get; init; }
@@ -22,7 +21,7 @@ public class VerificationSession
     public IdentityData? Identity { get; set; }
     public string? ErrorMessage { get; set; }
 
-    /// <summary>Letzter roher JSON-Response der Management-API (für /api/debug).</summary>
+    /// <summary>Last raw JSON response of the management API (for /api/debug).</summary>
     public string? LastRawResponse { get; set; }
 
     public DateTime CreatedUtc { get; } = DateTime.UtcNow;

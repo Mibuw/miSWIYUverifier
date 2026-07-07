@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Alle Services, Models und Config kommen aus der Core-Library -->
+    <!-- All services, models and config come from the core library -->
     <ProjectReference Include="..\miSWIYUverifier.Core\miSWIYUverifier.Core.csproj" />
   </ItemGroup>
 

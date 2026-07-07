@@ -8,7 +8,7 @@ obj/
 .vs/
 *.user
 
-# Zertifikate & Schlüsselmaterial — niemals ins Repo
+# Certificates & key material — never commit
 Cert/
 .didtoolbox/
 *.pfx
@@ -18,14 +18,14 @@ Cert/
 *.p12
 docker/.env
 
-# DID-Toolbox (43 MB JAR, Download siehe README)
+# DID toolbox (43 MB JAR, download see README)
 tools/didtoolbox.jar
 tools/didtoolbox-stderr.txt
 
-# Lokale Deployment-Dateien mit realen Werten — im Repo liegen nur Vorlagen
-# (proxy/Caddyfile.example; didlog.jsonl wird von der DID-Toolbox erzeugt)
+# Local deployment files with real values — the repo only contains templates
+# (proxy/Caddyfile.example; didlog.jsonl is created by the DID toolbox)
 proxy/Caddyfile
 didlog.jsonl
 
-# Claude-lokale Dateien
+# Claude-local files
 .claude/

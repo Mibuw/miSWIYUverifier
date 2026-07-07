@@ -1,15 +1,15 @@
-# swiyu-verifier (Schweizer E-ID Public Beta) + PostgreSQL
+# swiyu-verifier (Swiss E-ID Public Beta) + PostgreSQL
 #
-# Vorbereitung:
-#   1. docker/.env aus docker/.env.example erstellen und Werte eintragen
+# Preparation:
+#   1. Create docker/.env from docker/.env.example and fill in the values
 #      (VERIFIER_DID, DID_VERIFICATION_METHOD, SIGNING_KEY, EXTERNAL_URL)
 #   2. docker compose up -d
 #
-# Danach:
-#   Management-API : http://localhost:8083  (nur intern — NIE öffentlich exponieren!)
-#   Swagger-UI     : http://localhost:8083/swagger-ui/index.html
-#   OID4VP-API     : muss über EXTERNAL_URL öffentlich per HTTPS erreichbar sein
-#                    (z.B. Tunnel: cloudflared tunnel --url http://localhost:8083)
+# Afterwards:
+#   Management API : http://localhost:8083  (internal only — NEVER expose publicly!)
+#   Swagger UI     : http://localhost:8083/swagger-ui/index.html
+#   OID4VP API     : must be publicly reachable via HTTPS at EXTERNAL_URL
+#                    (e.g. reverse proxy on /oid4vp/* — see proxy/Caddyfile.example)
 
 name: miswiyuverifier
 
@@ -31,8 +31,8 @@ services:
       retries: 5
 
   verifier-service:
-    # Version pinnen: der "latest"-Tag zeigt (Stand 2026-07) noch auf 2.x,
-    # das nur das alte presentation_definition-Format kennt. Ab 3.0.0 gilt DCQL.
+    # Pin the version: the "latest" tag still points to 2.x (as of 2026-07),
+    # which only knows the old presentation_definition format. DCQL requires 3.0.0+.
     image: ghcr.io/swiyu-admin-ch/swiyu-verifier:3.0.3
     container_name: miSWIYUverifier-verifier
     restart: unless-stopped
