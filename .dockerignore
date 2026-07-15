@@ -1,0 +1,12 @@
+.git/
+.gitignore
+.vs/
+**/bin/
+**/obj/
+docker/
+proxy/
+tools/
+.didtoolbox/
+didlog.jsonl
+*.md
+LICENSE

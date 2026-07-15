@@ -1,0 +1,97 @@
+# VPS deployment: full stack (web app + swiyu-verifier + PostgreSQL) behind the
+# host's central Caddy container. No host ports are published — the services
+# that Caddy must reach additionally join the external Caddy network
+# (mipdfsign_default) and are addressed by their service name:
+#
+#   miswiyuverifier.mitterbucher.com {
+#       handle /oid4vp/*   { reverse_proxy miswiyu-verifier:8080 }
+#       handle /api/debug* { respond 404 }
+#       handle             { reverse_proxy miswiyu-webapp:5070 }
+#   }
+#
+# Preparation:
+#   1. Create docker/.env from docker/.env.example (EXTERNAL_URL = public HTTPS URL)
+#   2. cd docker && docker compose -f docker-compose.vps.yml up -d --build
+
+name: miswiyuverifier
+
+services:
+  miswiyu-postgres:
+    image: postgres:15-alpine
+    container_name: miSWIYUverifier-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "verifier_user"
+      POSTGRES_PASSWORD: "secret"
+      POSTGRES_DB: "verifier_db"
+    networks:
+      - internal
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U verifier_user -d verifier_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  miswiyu-verifier:
+    # Pin the version: the "latest" tag still points to 2.x (as of 2026-07),
+    # which only knows the old presentation_definition format. DCQL requires 3.0.0+.
+    image: ghcr.io/swiyu-admin-ch/swiyu-verifier:3.0.3
+    container_name: miSWIYUverifier-verifier
+    restart: unless-stopped
+    depends_on:
+      miswiyu-postgres:
+        condition: service_healthy
+    configs:
+      - source: verifier_metadata
+        target: /verifier_metadata.json
+    environment:
+      EXTERNAL_URL: ${EXTERNAL_URL}
+      OPENID_CLIENT_METADATA_FILE: file:/verifier_metadata.json
+      VERIFIER_DID: ${VERIFIER_DID}
+      DID_VERIFICATION_METHOD: ${DID_VERIFICATION_METHOD}
+      SIGNING_KEY: ${SIGNING_KEY}
+      VERIFICATION_TTL_SEC: ${VERIFICATION_TTL_SEC:-900}
+      # Persistence
+      POSTGRES_USER: "verifier_user"
+      POSTGRES_PASSWORD: "secret"
+      POSTGRES_DB: "verifier_db"
+      POSTGRES_JDBC: "jdbc:postgresql://miswiyu-postgres:5432/verifier_db"
+    networks:
+      - internal
+      - web
+
+  miswiyu-webapp:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: miSWIYUverifier-webapp
+    restart: unless-stopped
+    depends_on:
+      - miswiyu-verifier
+    environment:
+      SWIYU_VerifierSettings__ManagementUrl: "http://miswiyu-verifier:8080"
+    networks:
+      - internal
+      - web
+
+configs:
+  verifier_metadata:
+    content: |
+      {
+        "client_id": "${VERIFIER_DID}",
+        "client_name#de": "miSWIYUverifier",
+        "client_name#en": "miSWIYUverifier",
+        "client_name": "miSWIYUverifier",
+        "vp_formats": {
+          "jwt_vp": {
+            "alg": [ "ES256" ]
+          }
+        }
+      }
+
+networks:
+  internal:
+    driver: bridge
+  web:
+    external: true
+    name: mipdfsign_default
