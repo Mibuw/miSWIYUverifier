@@ -17,7 +17,7 @@ Status: **tested end-to-end** with the real swiyu app + Beta-ID (July 2026).
 
 ## Try it (live demo)
 
-A public test instance is available at **http://miswiyuverifier.mitterbucher.com:5070/** —
+A public test instance is available at **https://miswiyuverifier.mitterbucher.com/** —
 open it, scan the QR code with your swiyu app and confirm.
 
 > **No guarantee of availability** — this endpoint may be offline at any time.
@@ -26,9 +26,7 @@ open it, scan the QR code with your swiyu app and confirm.
 - You need the **swiyu app** with a **Beta-ID** (free, self-issued — see step 1 below).
 - Every visitor gets **their own verification session** (own QR code); any number of
   verifications can run in parallel. "New request" starts a fresh verification anytime.
-- The demo page itself is served over plain HTTP; this is acceptable because the Beta-ID
-  contains **made-up pseudo data only** (not an official document). The security-relevant
-  wallet exchange runs separately over HTTPS (port 443).
+- Note: the Beta-ID contains **made-up pseudo data only** (not an official document).
 
 ## Flow (Cross-Device)
 
@@ -61,7 +59,8 @@ open it, scan the QR code with your swiyu app and confirm.
 | `src/miSWIYUverifier.Core` | Reusable library: `VerifierApiService`, models, `QrCodeService`, DI extension |
 | `src/miSWIYUverifier` | Minimal-API web host with single-page UI (port **5070**) |
 | `src/miSWIYUverifier.Core.Tests` | xUnit tests |
-| `docker/` | docker-compose for swiyu-verifier + PostgreSQL; `docker/.env` (not in the repo!) holds DID + signing key |
+| `docker/` | docker-compose for swiyu-verifier + PostgreSQL (local dev) and `docker-compose.vps.yml` (full stack for production); `docker/.env` (not in the repo!) holds DID + signing key |
+| `Dockerfile` | Web-app image, built locally on the deployment host (never pushed to a registry) |
 | `proxy/Caddyfile.example` | Reverse-proxy template (TLS on 443 → `/oid4vp/*` → localhost:8083); the real `proxy/Caddyfile` is not in the repo |
 | `tools/` | DID toolbox JAR (download see below, not in the repo) |
 | `didlog.jsonl` | Backup of the uploaded DID log — created during onboarding, not in the repo |
@@ -245,6 +244,36 @@ app and confirm the data sharing — the page displays the verified data.
 
 > Port **5070**, not 5060: Chrome blocks 5060 as an "unsafe port"
 > (SIP port, `ERR_UNSAFE_PORT`).
+
+## Production deployment (VPS)
+
+The live demo runs on a Linux VPS where a central **Caddy container** terminates TLS
+for several projects. `docker/docker-compose.vps.yml` runs the full stack (web app
+built from source + swiyu-verifier + PostgreSQL) **without publishing any host
+ports** — the services that Caddy must reach join the external Caddy docker
+network instead and are addressed by service name:
+
+```bash
+git clone https://github.com/Mibuw/miSWIYUverifier /opt/miswiyuverifier
+# create docker/.env (EXTERNAL_URL=https://<your-domain>, DID, signing key)
+cd /opt/miswiyuverifier/docker
+docker compose -f docker-compose.vps.yml up -d --build
+```
+
+Caddy site block (TLS via Let's Encrypt is automatic once DNS points at the host):
+
+```
+<your-domain> {
+    handle /oid4vp/*   { reverse_proxy miswiyu-verifier:8080 }
+    handle /api/debug* { respond 404 }
+    handle             { reverse_proxy miswiyu-webapp:5070 }
+}
+```
+
+The `/api/debug*` block at the proxy matters: behind a reverse proxy the app sees
+the proxy's IP instead of the caller's, so the app's built-in localhost check is
+complemented by blocking the route at the edge. The management API is never
+published at all — it is only reachable inside the docker network.
 
 ## Configuration
 
