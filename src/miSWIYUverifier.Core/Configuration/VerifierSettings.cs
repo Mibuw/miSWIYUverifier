@@ -82,8 +82,13 @@ public class VerifierSettings
     /// <summary>Whether the authorization request is sent as a signed JWT (JAR).</summary>
     public bool JwtSecuredAuthorizationRequest { get; set; } = true;
 
-    /// <summary>Wallet response mode. "direct_post" or "direct_post.jwt".</summary>
-    public string ResponseMode { get; set; } = "direct_post";
+    /// <summary>
+    /// Wallet response mode. Must be "direct_post.jwt" (encrypted response): the
+    /// swiyu wallet only accepts "direct_post.jwt" and "dc_api.jwt". Its Swift
+    /// ResponseMode enum has no case for plain "direct_post", so decoding the
+    /// request object fails outright and the scan aborts with "invalid_request".
+    /// </summary>
+    public string ResponseMode { get; set; } = "direct_post.jwt";
 
     /// <summary>Require cryptographic holder binding of the presented credential.</summary>
     public bool RequireHolderBinding { get; set; } = true;

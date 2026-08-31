@@ -297,7 +297,7 @@ published at all — it is only reachable inside the docker network.
 | `AcceptedIssuerDids` | Beta-ID issuer | Trusted issuers (mandatory!) |
 | `RequestedClaims` | name, birth date, age_over_18, sex, nationality, birth_place, portrait | Requested Beta-ID attributes |
 | `JwtSecuredAuthorizationRequest` | `true` | Signed request object (JAR) |
-| `ResponseMode` | `direct_post` | or `direct_post.jwt` |
+| `ResponseMode` | `direct_post.jwt` | Do not change: the swiyu wallet only accepts `direct_post.jwt` and `dc_api.jwt` |
 | `PurposeName` / `PurposeDescription` / `PurposeScope` | demo texts | Purpose shown in the wallet (empty = omit) |
 
 Available Beta-ID claims: `document_number`, `given_name`, `family_name`,
@@ -357,7 +357,13 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
   `docker compose pull && docker compose up -d`; check the version via `/actuator/info`.
   The image in the compose file is pinned to 4.2.0 (see above).
 - **Wallet aborts right when scanning with `invalid_request`** → the authorization
-  request is not OID4VP 1.0 compliant. Two causes, both fixed in this repo:
+  request is not OID4VP 1.0 compliant. Three causes, all fixed in this repo:
+  0. `ResponseMode` is plain **`direct_post`**. The wallet's `ResponseMode` enum
+     (`RequestObject.swift` in `swiyu-admin-ch/eidch-ios-wallet`) only has cases for
+     `direct_post.jwt` and `dc_api.jwt`, and it decodes the field non-optionally —
+     so `direct_post` makes the whole request object fail to decode before any of
+     its contents are looked at. Use `direct_post.jwt` (encrypted response).
+     This one survives verifier upgrades, because it is our own setting.
   1. A **3.x image** is running, whose request still uses `client_id_scheme` instead
      of a prefixed `client_id`. Upgrade to 4.x (see above).
   2. The **client metadata** still uses the draft-era `vp_formats` key, or declares
