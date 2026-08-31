@@ -13,7 +13,8 @@ confirms the data sharing of their **Beta-ID**, and the page displays the verifi
 identity data: given name, family name, date of birth, over-18, sex, nationality,
 place of birth and portrait photo.
 
-Status: **tested end-to-end** with the real swiyu app + Beta-ID (July 2026).
+Status: **tested end-to-end** with the real swiyu app + Beta-ID (last verified
+August 2026, swiyu-verifier 4.2.0 / OID4VP 1.0).
 
 ## Try it (live demo)
 
@@ -99,6 +100,13 @@ Anyone can issue themselves a free Beta-ID (pseudo identity for the Public Beta)
 2. Open https://www.bcs.admin.ch/bcs-web
 3. Fill in the form (name, date of birth, … — freely chosen, not an official document)
 4. Scan the displayed QR code with the swiyu app → the Beta-ID is in the wallet
+
+> **Beta-IDs get revoked.** They are Public-Beta test credentials, not documents with
+> a long life. A Beta-ID that worked weeks ago can show up as revoked without any
+> notice in the wallet — the wallet still presents it, and the verifier is the one
+> that rejects it (`credential_revoked`, see Troubleshooting). If verification starts
+> failing at the very last step, issue a fresh Beta-ID here and delete the old one
+> from the wallet.
 
 ## Step 2: Verifier onboarding (once)
 
@@ -358,22 +366,33 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
   The image in the compose file is pinned to 4.2.0 (see above).
 - **Wallet aborts right when scanning with `invalid_request`** → the authorization
   request is not OID4VP 1.0 compliant. Three causes, all fixed in this repo:
-  0. `ResponseMode` is plain **`direct_post`**. The wallet's `ResponseMode` enum
+  1. `ResponseMode` is plain **`direct_post`**. The wallet's `ResponseMode` enum
      (`RequestObject.swift` in `swiyu-admin-ch/eidch-ios-wallet`) only has cases for
      `direct_post.jwt` and `dc_api.jwt`, and it decodes the field non-optionally —
      so `direct_post` makes the whole request object fail to decode before any of
-     its contents are looked at. Use `direct_post.jwt` (encrypted response).
-     This one survives verifier upgrades, because it is our own setting.
-  1. A **3.x image** is running, whose request still uses `client_id_scheme` instead
+     its contents are looked at. Use `direct_post.jwt` (encrypted response); the
+     verifier then adds `jwks` and `encrypted_response_enc_values_supported` to the
+     client metadata by itself, and decrypts the response before the web app sees it.
+     Check this cause first: it is our own setting, so it survives verifier upgrades
+     and looks identical to the two below.
+  2. A **3.x image** is running, whose request still uses `client_id_scheme` instead
      of a prefixed `client_id`. Upgrade to 4.x (see above).
-  2. The **client metadata** still uses the draft-era `vp_formats` key, or declares
+  3. The **client metadata** still uses the draft-era `vp_formats` key, or declares
      a format other than the one being requested. OID4VP 1.0 renamed the key to
      `vp_formats_supported`, and for the Beta-ID it must declare `dc+sd-jwt`
      (with `sd-jwt_alg_values` / `kb-jwt_alg_values`) — not `jwt_vp`. Check what is
      actually published: `https://<domain>/oid4vp/api/openid-client-metadata.json`.
 
-  After either fix: `docker compose up -d` and click "New request" — an already
-  generated QR code keeps the old request object.
+  After any of these: `docker compose up -d` and click "New request" — an already
+  generated QR code keeps the old request object. Note that `docker compose up -d`
+  does **not** notice changes to an inline `configs:` block; for metadata changes use
+  `docker compose up -d --force-recreate <verifier-service>`, otherwise the old
+  metadata is served on silently.
+- **`credential_revoked` / "Credential is not valid"** → the presented Beta-ID is
+  revoked in the status registry. This is a correct rejection, not a bug: everything
+  up to and including signature and holder-binding checks succeeded, and only
+  `SdJwtVpTokenVerifier.verifyStatus` failed. Issue a fresh Beta-ID (step 1) and
+  delete the old one from the wallet.
 - **Verification SUCCESS but no data shown** → since v3, `credential_subject_data`
   is **grouped by DCQL credential id**:
   `{ "<credential-id>": [ { …claims… } ] }` instead of flat. The extraction in
@@ -400,6 +419,64 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
 - **Access token expired (registry API)** → only relevant for onboarding/DID
   updates; renew via `BOOTSTRAP_REFRESH_TOKEN` or the API self-service portal.
   Normal operation needs no token.
+
+### Diagnosing a wallet-side rejection
+
+The wallet shows one generic message (`invalid_request`) for a long list of causes and
+sends nothing back when it rejects a request object, so guessing is expensive. These
+three steps localise the fault quickly, in this order.
+
+**1. Ask the verifier what it recorded.** The management API holds the wallet's own
+error code — this is what a "revoked", "expired" or "not accepted" case looks like from
+the server side. It is not published through the reverse proxy, so query it from inside
+the docker network:
+
+```bash
+docker run --rm --network <project>_internal curlimages/curl -s http://<verifier-service>:8080/management/api/verifications/<id>
+# → {"state":"FAILED","wallet_response":{"error_code":"credential_revoked", …}}
+```
+
+Nothing recorded at all means the wallet never sent a response — the request object was
+rejected locally, and step 2 applies.
+
+**2. Find out whether the wallet even fetched the request object.** Enable the access
+log on the reverse-proxy site block temporarily (in Caddy: add `log` inside the site
+block, then `caddy reload`) and scan once. The wallet identifies itself as
+**`swiyuWallet`**:
+
+```
+GET 200 /oid4vp/api/request-object/<id>    UA: swiyuWallet
+```
+
+A hit followed by silence means the request object was fetched and discarded during
+validation — the fault is in its *content*. No hit at all means the deep link, DNS or
+TLS is the problem, and the request object is irrelevant.
+
+**3. Read the wallet's own rules.** Both wallets are open source and the validation is
+short and readable — it is faster than inferring wallet behaviour from verifier release
+notes, which is how the `direct_post` cause above stayed hidden through two upgrades:
+
+```bash
+REPO=swiyu-admin-ch/eidch-ios-wallet
+SRC=Modules/Features/BITOpenID/Sources/BITOpenID/Domain
+gh api "repos/$REPO/contents/$SRC/Validators/RequestObjectValidator.swift" --jq .content | base64 -d
+```
+
+`RequestObjectValidator.swift` lists every rejection condition, and
+`Domain/Models/Presentation/RequestObject.swift` defines which fields are decoded
+non-optionally and which enum values are accepted — a value outside those enums fails
+the whole decode before any content is inspected. The Android wallet lives in
+[`eidch-android-wallet`](https://github.com/swiyu-admin-ch/eidch-android-wallet); on
+Android, `adb logcat | grep -i swiyu` prints the rejection reason directly.
+
+Useful self-checks that need no wallet at all:
+
+```bash
+# request object: header, claims and Content-Type (must be application/oauth-authz-req+jwt)
+curl -sD - https://<domain>/oid4vp/api/request-object/<id>
+# published client metadata
+curl -s https://<domain>/oid4vp/api/openid-client-metadata.json | jq
+```
 
 ## Operations: what runs where?
 
