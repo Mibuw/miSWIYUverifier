@@ -14,12 +14,16 @@ builder.Logging
     .SetMinimumLevel(LogLevel.Warning)
     .AddFilter("miSWIYUverifier", LogLevel.Information);
 
-var settings = builder.Configuration
+var settings = (builder.Configuration
     .GetSection(VerifierSettings.SectionName)
-    .Get<VerifierSettings>() ?? new VerifierSettings();
+    .Get<VerifierSettings>() ?? new VerifierSettings()).ApplyDefaults();
 
 builder.Services.Configure<VerifierSettings>(
     builder.Configuration.GetSection(VerifierSettings.SectionName));
+
+// The configuration binder appends to existing collections, so the list defaults
+// live in ApplyDefaults() rather than in the property initialisers.
+builder.Services.PostConfigure<VerifierSettings>(s => s.ApplyDefaults());
 
 builder.Services.AddHttpClient<VerifierApiService>(client =>
 {

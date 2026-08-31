@@ -47,9 +47,13 @@ public static class MiSWIYUverifierExtensions
         services.Configure<VerifierSettings>(
             configuration.GetSection(VerifierSettings.SectionName));
 
-        var settings = configuration
+        // The configuration binder appends to existing collections, so the list
+        // defaults live in ApplyDefaults() rather than in the property initialisers.
+        services.PostConfigure<VerifierSettings>(s => s.ApplyDefaults());
+
+        var settings = (configuration
             .GetSection(VerifierSettings.SectionName)
-            .Get<VerifierSettings>() ?? new VerifierSettings();
+            .Get<VerifierSettings>() ?? new VerifierSettings()).ApplyDefaults();
 
         services.AddHttpClient<VerifierApiService>(client =>
         {

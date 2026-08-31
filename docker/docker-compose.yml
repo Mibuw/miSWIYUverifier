@@ -31,9 +31,13 @@ services:
       retries: 5
 
   verifier-service:
-    # Pin the version: the "latest" tag still points to 2.x (as of 2026-07),
-    # which only knows the old presentation_definition format. DCQL requires 3.0.0+.
-    image: ghcr.io/swiyu-admin-ch/swiyu-verifier:3.0.3
+    # Pin the version: 4.x speaks OID4VP 1.0, which the swiyu wallet now enforces.
+    # Up to 3.x the authorization request still carried the draft-era
+    # "client_id_scheme": "did" plus an unprefixed client_id — the wallet rejects
+    # that when scanning the QR code with "invalid_request". Since 4.0.0 the
+    # client_id is prefixed instead (client_id_prefix, default
+    # "decentralized_identifier").
+    image: ghcr.io/swiyu-admin-ch/swiyu-verifier:4.2.0
     container_name: miSWIYUverifier-verifier
     restart: unless-stopped
     depends_on:

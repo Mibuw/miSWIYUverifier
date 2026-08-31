@@ -223,12 +223,20 @@ starts at sign-in: Settings → General → "Start Docker Desktop when you sign 
 Checks:
 - `GET http://localhost:8083/actuator/health` → `UP`
 - Swagger UI: http://localhost:8083/swagger-ui/index.html
-- `GET http://localhost:8083/actuator/info` → must show **version 3.x**!
+- `GET http://localhost:8083/actuator/info` → must show **version 4.x**!
 
-> **The image version is deliberately pinned to `3.0.3`.** The `latest` tag on
-> ghcr.io still pointed to **2.1.2** (as of July 2026), which only knows the old
-> `presentation_definition` format and rejects DCQL requests with
-> `"PresentationDefinition must be provided"`. Since v3.0.0 only DCQL is supported.
+> **The image version is deliberately pinned to `4.2.0`.** Two moving targets make
+> the pin necessary:
+> - Up to **2.x** only the old `presentation_definition` format was understood;
+>   DCQL requests were rejected with `"PresentationDefinition must be provided"`.
+>   Since v3.0.0 only DCQL is supported.
+> - **3.x** still emitted a draft-era authorization request with
+>   `"client_id_scheme": "did"` and an unprefixed `client_id`. The swiyu wallet
+>   meanwhile enforces **OID4VP 1.0**, where `client_id_scheme` no longer exists
+>   and the scheme is a prefix of the `client_id`
+>   (`decentralized_identifier:did:webvh:…`). Scanning the QR code against a 3.x
+>   verifier fails immediately with **`invalid_request`**. Fixed in v4.0.0 via the
+>   `client_id_prefix` property (default `decentralized_identifier`).
 
 > The management API (port 8083) must **never** be publicly reachable —
 > it is unprotected by default and hands out identity data.
@@ -347,7 +355,12 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
 
 - **`"PresentationDefinition must be provided"`** → a 2.x image is running.
   `docker compose pull && docker compose up -d`; check the version via `/actuator/info`.
-  The image in the compose file is pinned to 3.0.3 (see above).
+  The image in the compose file is pinned to 4.2.0 (see above).
+- **Wallet aborts right when scanning with `invalid_request`** → a 3.x image is
+  running, whose authorization request still uses `client_id_scheme` instead of an
+  OID4VP 1.0 prefixed `client_id`. Upgrade to 4.x (see above), then `docker compose
+  up -d` and click "New request" — an already generated QR code keeps the old
+  request object.
 - **Verification SUCCESS but no data shown** → since v3, `credential_subject_data`
   is **grouped by DCQL credential id**:
   `{ "<credential-id>": [ { …claims… } ] }` instead of flat. The extraction in
