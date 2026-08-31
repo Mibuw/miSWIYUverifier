@@ -356,11 +356,18 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
 - **`"PresentationDefinition must be provided"`** → a 2.x image is running.
   `docker compose pull && docker compose up -d`; check the version via `/actuator/info`.
   The image in the compose file is pinned to 4.2.0 (see above).
-- **Wallet aborts right when scanning with `invalid_request`** → a 3.x image is
-  running, whose authorization request still uses `client_id_scheme` instead of an
-  OID4VP 1.0 prefixed `client_id`. Upgrade to 4.x (see above), then `docker compose
-  up -d` and click "New request" — an already generated QR code keeps the old
-  request object.
+- **Wallet aborts right when scanning with `invalid_request`** → the authorization
+  request is not OID4VP 1.0 compliant. Two causes, both fixed in this repo:
+  1. A **3.x image** is running, whose request still uses `client_id_scheme` instead
+     of a prefixed `client_id`. Upgrade to 4.x (see above).
+  2. The **client metadata** still uses the draft-era `vp_formats` key, or declares
+     a format other than the one being requested. OID4VP 1.0 renamed the key to
+     `vp_formats_supported`, and for the Beta-ID it must declare `dc+sd-jwt`
+     (with `sd-jwt_alg_values` / `kb-jwt_alg_values`) — not `jwt_vp`. Check what is
+     actually published: `https://<domain>/oid4vp/api/openid-client-metadata.json`.
+
+  After either fix: `docker compose up -d` and click "New request" — an already
+  generated QR code keeps the old request object.
 - **Verification SUCCESS but no data shown** → since v3, `credential_subject_data`
   is **grouped by DCQL credential id**:
   `{ "<credential-id>": [ { …claims… } ] }` instead of flat. The extraction in

@@ -79,6 +79,10 @@ services:
       - web
 
 configs:
+  # Client metadata per OID4VP 1.0: the key is "vp_formats_supported" (not the
+  # draft-era "vp_formats"), and it must declare the credential format actually
+  # requested — "dc+sd-jwt" for the Beta-ID. Declaring only "jwt_vp" made the
+  # swiyu wallet reject the authorization request with "invalid_request".
   verifier_metadata:
     content: |
       {
@@ -86,9 +90,10 @@ configs:
         "client_name#de": "miSWIYUverifier",
         "client_name#en": "miSWIYUverifier",
         "client_name": "miSWIYUverifier",
-        "vp_formats": {
-          "jwt_vp": {
-            "alg": [ "ES256" ]
+        "vp_formats_supported": {
+          "dc+sd-jwt": {
+            "sd-jwt_alg_values": [ "ES256", "Ed25519" ],
+            "kb-jwt_alg_values": [ "ES256", "Ed25519" ]
           }
         }
       }
