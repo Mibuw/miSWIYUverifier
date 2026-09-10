@@ -1,6 +1,6 @@
 # Builds the two reusable artefacts of this repo on a version tag:
 #   - the web-app container image, pushed to ghcr.io
-#   - the miSWIYUverifier.Core NuGet package, kept as a build artefact
+#   - the miSWIYUverifier NuGet package (built from src/miSWIYUverifier.Core)
 #
 # Neither contains credentials. The verifier DID and signing key belong to the
 # swiyu-verifier service and reach it as environment variables at run time; this

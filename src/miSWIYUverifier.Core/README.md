@@ -1,4 +1,4 @@
-# miSWIYUverifier.Core
+# miSWIYUverifier
 
 Client library for verifying **Swiss E-ID (swiyu) Beta-ID** credentials from .NET.
 
@@ -15,7 +15,7 @@ verifier DID and signing key from the swiyu identifier registry.
 ## Install
 
 ```bash
-dotnet add package miSWIYUverifier.Core
+dotnet add package miSWIYUverifier
 ```
 
 ## Use

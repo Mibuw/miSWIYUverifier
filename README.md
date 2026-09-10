@@ -83,7 +83,7 @@ open it, scan the QR code with your swiyu Sandbox Wallet and confirm.
 
 | Path | Content |
 |---|---|
-| `src/miSWIYUverifier.Core` | Reusable library: `VerifierApiService`, models, `QrCodeService`, DI extension — published as the **`miSWIYUverifier.Core`** NuGet package |
+| `src/miSWIYUverifier.Core` | Reusable library: `VerifierApiService`, models, `QrCodeService`, DI extension — published as the **`miSWIYUverifier`** NuGet package |
 | `src/miSWIYUverifier` | Minimal-API web host with single-page UI (port **5070**) |
 | `src/miSWIYUverifier.Core.Tests` | xUnit tests |
 | `docker/` | `docker-compose.yml` (swiyu-verifier + PostgreSQL for local dev), `docker-compose.vps.yml` (full stack, built from source) and `docker-compose.published.yml` (full stack from published images, for reuse); `docker/.env` (not in the repo!) holds DID + signing key |
@@ -331,7 +331,7 @@ Two artefacts are published so you do not have to clone and build this repo:
 
 | Artefact | What it is |
 |---|---|
-| [`miSWIYUverifier.Core`](https://www.nuget.org/packages/miSWIYUverifier.Core) | .NET library — build the DCQL query, create a verification, render the QR code, poll, flatten the claims |
+| [`miSWIYUverifier`](https://www.nuget.org/packages/miSWIYUverifier) | .NET library — build the DCQL query, create a verification, render the QR code, poll, flatten the claims |
 | `ghcr.io/mibuw/miswiyuverifier` | The ready web app (QR page + REST API) as a container |
 
 **Neither carries credentials.** The verifier DID and signing key belong to the
@@ -396,7 +396,8 @@ gh secret set NUGET_API_KEY --repo Mibuw/miSWIYUverifier   # prompts for the val
 ```
 
 Get it from nuget.org → your profile → **API Keys** → *Create*, with the glob pattern
-`miSWIYUverifier.*` and the *Push* scope. Without the secret the workflow still builds
+`miSWIYUverifier*` — note there is no dot, so that it also matches the package
+itself and not only `miSWIYUverifier.<something>` — and the *Push* scope. Without the secret the workflow still builds
 and keeps the package, it just does not publish — a fork needs no configuration.
 
 Note that publishing is the one irreversible step here: a version on nuget.org can be

@@ -14,7 +14,9 @@
 
   <!-- NuGet packaging: dotnet pack -c Release -->
   <PropertyGroup>
-    <PackageId>miSWIYUverifier.Core</PackageId>
+    <!-- The package is named after the project, not after the assembly inside it:
+         the assembly stays miSWIYUverifier.Core, the package is miSWIYUverifier. -->
+    <PackageId>miSWIYUverifier</PackageId>
     <Version>1.0.0</Version>
     <Authors>Wolfgang Mitterbucher</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
