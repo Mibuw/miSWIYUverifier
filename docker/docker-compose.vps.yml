@@ -55,6 +55,13 @@ services:
       DID_VERIFICATION_METHOD: ${DID_VERIFICATION_METHOD}
       SIGNING_KEY: ${SIGNING_KEY}
       VERIFICATION_TTL_SEC: ${VERIFICATION_TTL_SEC:-900}
+      # The BCS status list token carries no "exp" claim, but swiyu-verifier 4.x
+      # requires one by default. Without this the status check fails its
+      # precondition and reports credential_revoked / "Credential is not valid"
+      # for perfectly valid credentials — the error is indistinguishable from a
+      # real revocation. The v3-to-v4 migration guide names BCS explicitly as the
+      # issuer this applies to.
+      VERIFICATION_EXPIRY_MUST_BE_PRESENT: "false"
       # Persistence
       POSTGRES_USER: "verifier_user"
       POSTGRES_PASSWORD: "secret"

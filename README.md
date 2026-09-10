@@ -430,11 +430,36 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
      `portrait` or `birth_place`. To isolate it, cut `RequestedClaims` down to
      `given_name` and add entries back until the match breaks — if even `given_name`
      alone does not match, the cause is `vct` or format, not the claims.
-- **`credential_revoked` / "Credential is not valid"** → the presented Beta-ID is
-  revoked in the status registry. This is a correct rejection, not a bug: everything
-  up to and including signature and holder-binding checks succeeded, and only
-  `SdJwtVpTokenVerifier.verifyStatus` failed. Issue a fresh Beta-ID (step 1) and
-  delete the old one from the wallet.
+- **`credential_revoked` / "Credential is not valid"** → **do not trust this message.**
+  It does not mean the credential is revoked. `TokenStatusListVerifier.verifyStatus`
+  returns `(valid=false, status=empty)` whenever its *preconditions* fail, and
+  `SdJwtVpTokenVerifier` maps that to `CREDENTIAL_REVOKED` — the same error a real
+  revocation produces. The comment in the swiyu source says as much: *"Something
+  wrong with the status list or revoked"*.
+
+  The usual cause here is the **missing `exp` on the BCS status list token**.
+  swiyu-verifier 4.x requires an expiry by default; the BCS token has only `iss`,
+  `sub`, `iat` and `status_list`. Both compose files therefore set
+  `VERIFICATION_EXPIRY_MUST_BE_PRESENT: "false"`, which the
+  [v3-to-v4 migration guide](https://github.com/swiyu-admin-ch/swiyu-verifier/blob/main/migration-guides/v3.x-to-v4.x.md)
+  recommends for BCS by name. If that setting is lost, every Beta-ID starts
+  reporting as revoked.
+
+  To tell a real revocation from this, fetch the status list yourself — it is public
+  and needs no credential:
+
+  ```bash
+  # the URI appears in the verifier log at DEBUG:
+  #   LOGGING_LEVEL_CH_ADMIN_BJ_SWIYU_VERIFIER_SERVICE_STATUSLIST: DEBUG
+  curl -s https://status-reg.trust-infra.swiyu-int.admin.ch/api/v1/statuslist/<id>.jwt
+  ```
+
+  Decode the payload: no `exp` present means the precondition above is the cause.
+  A genuine revocation would additionally require the credential's own index to be
+  set in the (zlib-compressed, base64url) `status_list.lst` bitmap.
+
+  Only if the token *does* carry an `exp` and the bit really is set is the credential
+  actually revoked — then issue a fresh Beta-ID (step 1) and delete the old one.
 - **Verification SUCCESS but no data shown** → since v3, `credential_subject_data`
   is **grouped by DCQL credential id**:
   `{ "<credential-id>": [ { …claims… } ] }` instead of flat. The extraction in
