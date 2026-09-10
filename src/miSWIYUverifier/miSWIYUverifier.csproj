@@ -6,6 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>miSWIYUverifier</AssemblyName>
     <RootNamespace>miSWIYUverifier</RootNamespace>
+    <!-- This host is never packed; the NuGet package is the Core library, which
+         claims the id "miSWIYUverifier". Without a distinct PackageId here NuGet
+         sees two projects under that name and restore fails with
+         "Ambiguous project name 'miSWIYUverifier'". -->
+    <IsPackable>false</IsPackable>
+    <PackageId>miSWIYUverifier.WebApp</PackageId>
   </PropertyGroup>
 
   <ItemGroup>

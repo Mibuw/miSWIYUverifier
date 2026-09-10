@@ -37,7 +37,12 @@ public class VerifierApiService
         ILogger<VerifierApiService> logger)
     {
         _http = http;
-        _settings = settings.Value;
+        // ApplyDefaults() here rather than only in the DI registration, so that a
+        // hand-built VerifierSettings works too. The list properties start out empty
+        // (the configuration binder appends to existing collections instead of
+        // replacing them), so without this a `new VerifierSettings()` would produce a
+        // DCQL query with no vct, no claims and no accepted issuers. Idempotent.
+        _settings = (settings.Value ?? new VerifierSettings()).ApplyDefaults();
         _logger = logger;
     }
 

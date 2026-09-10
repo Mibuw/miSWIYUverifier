@@ -62,8 +62,13 @@ public class VerifierApiServiceTests
         var credential = root.GetProperty("dcql_query")
             .GetProperty("credentials")[0];
         credential.GetProperty("format").GetString().Should().Be("dc+sd-jwt");
-        credential.GetProperty("meta").GetProperty("vct_values")[0]
-            .GetString().Should().Be("betaid-sdjwt");
+        // Both vct values, not just one: the Beta-ID is migrating from the bare
+        // "betaid-sdjwt" to the urn form, so a credential issued before the switch
+        // carries the old value and one issued after it the new one. Requesting a
+        // single value makes the wallet report "no suitable credential".
+        credential.GetProperty("meta").GetProperty("vct_values").EnumerateArray()
+            .Select(v => v.GetString()).Should()
+            .Contain(new[] { "betaid-sdjwt", "urn:vct:ch.admin.bcs.betaid" });
         credential.GetProperty("require_cryptographic_holder_binding")
             .GetBoolean().Should().BeTrue();
 
@@ -75,7 +80,9 @@ public class VerifierApiServiceTests
         // Trust: without accepted_issuer_dids nothing would be accepted (since v2.2.0)
         root.GetProperty("accepted_issuer_dids").GetArrayLength().Should().BeGreaterThan(0);
         root.GetProperty("jwt_secured_authorization_request").GetBoolean().Should().BeTrue();
-        root.GetProperty("response_mode").GetString().Should().Be("direct_post");
+        // direct_post.jwt is mandatory: the wallet's ResponseMode enum has no case
+        // for plain direct_post and fails to decode the whole request object.
+        root.GetProperty("response_mode").GetString().Should().Be("direct_post.jwt");
         root.GetProperty("verification_purpose").GetProperty("purpose_name")
             .GetProperty("default").GetString().Should().NotBeNullOrWhiteSpace();
     }
