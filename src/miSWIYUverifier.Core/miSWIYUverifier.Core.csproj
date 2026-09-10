@@ -12,6 +12,26 @@
     <Description>Swiyu (Swiss E-ID Public Beta) verifier core – Beta-ID verification via the swiyu-verifier management API</Description>
   </PropertyGroup>
 
+  <!-- NuGet packaging: dotnet pack -c Release -->
+  <PropertyGroup>
+    <PackageId>miSWIYUverifier.Core</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Wolfgang Mitterbucher</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Mibuw/miSWIYUverifier</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Mibuw/miSWIYUverifier</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>swiyu;swiss-eid;e-id;beta-id;oid4vp;dcql;sd-jwt;verifiable-credentials</PackageTags>
+    <!-- Ships the XML docs generated above alongside the assembly -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- QR code generation -->
     <PackageReference Include="QRCoder" Version="1.6.0" />

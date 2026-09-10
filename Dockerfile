@@ -1,5 +1,6 @@
-# Web app image (built locally on the deployment host — never pushed to a
-# registry, see README "No Docker image of this project").
+# Web app image. Published to ghcr.io/mibuw/miswiyuverifier on a version tag
+# (.github/workflows/release.yml); the VPS deployment builds it locally instead.
+# It contains no credentials — see README "Reusing this project".
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY . .

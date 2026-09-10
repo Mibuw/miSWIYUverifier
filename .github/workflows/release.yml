@@ -1,0 +1,80 @@
+# Builds the two reusable artefacts of this repo on a version tag:
+#   - the web-app container image, pushed to ghcr.io
+#   - the miSWIYUverifier.Core NuGet package, kept as a build artefact
+#
+# Neither contains credentials. The verifier DID and signing key belong to the
+# swiyu-verifier service and reach it as environment variables at run time; this
+# image only ever learns the management URL. See README "Reusing this project".
+#
+# Release:  git tag v1.0.0 && git push origin v1.0.0
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # A tag v1.2.3 publishes 1.2.3, 1.2, 1 and latest; a manual run publishes edge.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=edge,enable=${{ github.event_name == 'workflow_dispatch' }}
+          flavor: latest=${{ github.event_name == 'push' }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  package:
+    name: NuGet package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # On a tag the package version follows the tag (v1.2.3 -> 1.2.3);
+      # a manual run keeps the version from the csproj.
+      - name: Pack
+        run: |
+          version=""
+          case "$GITHUB_REF" in
+            refs/tags/v*) version="-p:Version=${GITHUB_REF_NAME#v}" ;;
+          esac
+          dotnet pack src/miSWIYUverifier.Core/miSWIYUverifier.Core.csproj \
+            -c Release -o artifacts $version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuget
+          path: artifacts/*
+
+      # Publishing to nuget.org is deliberately manual — it needs an account API key
+      # and is irreversible (a published version can be unlisted, never replaced):
+      #   dotnet nuget push artifacts/*.nupkg -k <API_KEY> -s https://api.nuget.org/v3/index.json

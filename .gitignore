@@ -29,3 +29,6 @@ didlog.jsonl
 
 # Claude-local files
 .claude/
+
+# NuGet pack output
+artifacts/

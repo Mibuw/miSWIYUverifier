@@ -1,0 +1,100 @@
+# Full stack from PUBLISHED images — for reusing this project without cloning or
+# building it. Web app + swiyu-verifier + PostgreSQL.
+#
+# Nothing here carries credentials: the verifier DID and signing key are yours and
+# reach the swiyu-verifier as environment variables from docker/.env. The web-app
+# image only ever learns the management URL.
+#
+# Preparation:
+#   1. Onboard your own verifier DID (README step 2) — you cannot reuse someone
+#      else's, the request objects are signed with its private key.
+#   2. Create docker/.env from docker/.env.example and fill in EXTERNAL_URL,
+#      VERIFIER_DID, DID_VERIFICATION_METHOD and SIGNING_KEY.
+#   3. Put a reverse proxy with a publicly trusted certificate in front of
+#      EXTERNAL_URL that forwards /oid4vp/* to the verifier (proxy/Caddyfile.example).
+#      The wallet rejects self-signed certificates.
+#   4. docker compose -f docker-compose.published.yml up -d
+#
+# Then open http://localhost:5070. The management API on 8083 is bound to loopback
+# only — it is unauthenticated and hands out identity data, never expose it.
+
+name: miswiyuverifier
+
+services:
+  verifier_postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "verifier_user"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-secret}"
+      POSTGRES_DB: "verifier_db"
+    volumes:
+      - verifier_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U verifier_user -d verifier_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  verifier-service:
+    # See docker-compose.yml for why the version is pinned rather than :latest.
+    image: ghcr.io/swiyu-admin-ch/swiyu-verifier:4.2.0
+    restart: unless-stopped
+    depends_on:
+      verifier_postgres:
+        condition: service_healthy
+    configs:
+      - source: verifier_metadata
+        target: /verifier_metadata.json
+    ports:
+      # Loopback only — the management API is unauthenticated.
+      - "127.0.0.1:8083:8080"
+    environment:
+      EXTERNAL_URL: ${EXTERNAL_URL}
+      OPENID_CLIENT_METADATA_FILE: file:/verifier_metadata.json
+      VERIFIER_DID: ${VERIFIER_DID}
+      DID_VERIFICATION_METHOD: ${DID_VERIFICATION_METHOD}
+      SIGNING_KEY: ${SIGNING_KEY}
+      VERIFICATION_TTL_SEC: ${VERIFICATION_TTL_SEC:-900}
+      # Required for BCS-issued credentials — see docker-compose.yml for the
+      # full explanation. Without it every valid Beta-ID reports as revoked.
+      VERIFICATION_EXPIRY_MUST_BE_PRESENT: "false"
+      POSTGRES_USER: "verifier_user"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-secret}"
+      POSTGRES_DB: "verifier_db"
+      POSTGRES_JDBC: "jdbc:postgresql://verifier_postgres:5432/verifier_db"
+
+  webapp:
+    image: ghcr.io/mibuw/miswiyuverifier:${WEBAPP_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - verifier-service
+    ports:
+      - "${WEBAPP_PORT:-5070}:5070"
+    environment:
+      SWIYU_VerifierSettings__ManagementUrl: "http://verifier-service:8080"
+      # Any other VerifierSettings value can be overridden with the SWIYU_ prefix
+      # and __ for nesting, e.g.:
+      #   SWIYU_VerifierSettings__PurposeName: "Age check"
+      # Lists are the exception: environment variables can replace an entry
+      # (…__RequestedClaims__0) but cannot shorten the list. To change which claims
+      # are requested, mount your own file over the built-in one:
+      #   volumes:
+      #     - ./my-appsettings.json:/app/appsettings.json:ro
+
+configs:
+  verifier_metadata:
+    content: |
+      {
+        "client_id": "${VERIFIER_DID}",
+        "client_name": "${CLIENT_NAME:-swiyu verifier}",
+        "vp_formats_supported": {
+          "dc+sd-jwt": {
+            "sd-jwt_alg_values": [ "ES256", "Ed25519" ],
+            "kb-jwt_alg_values": [ "ES256", "Ed25519" ]
+          }
+        }
+      }
+
+volumes:
+  verifier_data:

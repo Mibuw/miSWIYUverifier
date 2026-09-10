@@ -83,22 +83,26 @@ open it, scan the QR code with your swiyu Sandbox Wallet and confirm.
 
 | Path | Content |
 |---|---|
-| `src/miSWIYUverifier.Core` | Reusable library: `VerifierApiService`, models, `QrCodeService`, DI extension |
+| `src/miSWIYUverifier.Core` | Reusable library: `VerifierApiService`, models, `QrCodeService`, DI extension — published as the **`miSWIYUverifier.Core`** NuGet package |
 | `src/miSWIYUverifier` | Minimal-API web host with single-page UI (port **5070**) |
 | `src/miSWIYUverifier.Core.Tests` | xUnit tests |
-| `docker/` | docker-compose for swiyu-verifier + PostgreSQL (local dev) and `docker-compose.vps.yml` (full stack for production); `docker/.env` (not in the repo!) holds DID + signing key |
-| `Dockerfile` | Web-app image, built locally on the deployment host (never pushed to a registry) |
+| `docker/` | `docker-compose.yml` (swiyu-verifier + PostgreSQL for local dev), `docker-compose.vps.yml` (full stack, built from source) and `docker-compose.published.yml` (full stack from published images, for reuse); `docker/.env` (not in the repo!) holds DID + signing key |
+| `Dockerfile` | Web-app image — built locally for the VPS deployment, published to **`ghcr.io/mibuw/miswiyuverifier`** on a version tag |
+| `.github/workflows/release.yml` | On a `v*` tag: pushes the container image to ghcr.io and packs the NuGet package |
 | `proxy/Caddyfile.example` | Reverse-proxy template (TLS on 443 → `/oid4vp/*` → localhost:8083); the real `proxy/Caddyfile` is not in the repo |
 | `tools/` | DID toolbox JAR (download see below, not in the repo) |
 | `didlog.jsonl` | Backup of the uploaded DID log — created during onboarding, not in the repo |
 | `.didtoolbox/` | **Private keys** of the verifier DID (not in the repo — back them up externally!) |
 
-> **No Docker image of this project is built or published** because the deployment
-> configuration contains real organisation data (registered verifier DID, partner
-> registration, signing key) — even though it is "only" the swiyu **Public Beta**.
-> If you reuse this project, run the onboarding (step 2) with your own DID and keys;
-> all real values stay local in `docker/.env`, `proxy/Caddyfile` and `.didtoolbox/`
-> (excluded via `.gitignore`).
+> **Credentials never enter the build.** The registered verifier DID, the partner
+> registration and the signing key live in `docker/.env`, `proxy/Caddyfile` and
+> `.didtoolbox/` — all excluded via `.gitignore`, and all excluded from the image via
+> `.dockerignore`. They belong to the **swiyu-verifier** service and reach it as
+> environment variables at run time; the web-app image only ever learns the management
+> URL. That is why the image can be published — see
+> [Reusing this project](#reusing-this-project). If you reuse it, run the onboarding
+> (step 2) with your own DID and keys: request objects are signed with that private
+> key, so someone else's DID is of no use to you.
 
 ## Prerequisites
 
@@ -320,6 +324,75 @@ The `/api/debug*` block at the proxy matters: behind a reverse proxy the app see
 the proxy's IP instead of the caller's, so the app's built-in localhost check is
 complemented by blocking the route at the edge. The management API is never
 published at all — it is only reachable inside the docker network.
+
+## Reusing this project
+
+Two artefacts are published so you do not have to clone and build this repo:
+
+| Artefact | What it is |
+|---|---|
+| [`miSWIYUverifier.Core`](https://www.nuget.org/packages/miSWIYUverifier.Core) | .NET library — build the DCQL query, create a verification, render the QR code, poll, flatten the claims |
+| `ghcr.io/mibuw/miswiyuverifier` | The ready web app (QR page + REST API) as a container |
+
+**Neither carries credentials.** The verifier DID and signing key belong to the
+swiyu-verifier service and reach it as environment variables at run time; this image
+only ever learns the management URL, and `.dockerignore` keeps `docker/`, `proxy/` and
+`.didtoolbox/` out of the build context entirely.
+
+**What you have to bring yourself**, because it cannot be shared:
+
+1. **Your own verifier DID and signing key** (step 2). Request objects are signed with
+   that private key, so someone else's DID is useless to you.
+2. **A public HTTPS endpoint with a publicly trusted certificate** (step 3). The wallet
+   fetches the request object from it and rejects self-signed certificates.
+3. **The swiyu Sandbox Wallet** and a Beta-ID (step 1, and the note at the top).
+
+### Run the whole stack from published images
+
+```bash
+# docker/.env holds EXTERNAL_URL, VERIFIER_DID, DID_VERIFICATION_METHOD, SIGNING_KEY
+cd docker
+docker compose -f docker-compose.published.yml up -d
+```
+
+That starts the web app, the swiyu-verifier and PostgreSQL, publishes the UI on
+`:5070` and binds the management API to loopback only. Settings can be overridden with
+the `SWIYU_` prefix and `__` for nesting, e.g.
+`SWIYU_VerifierSettings__PurposeName`. Lists are the exception — an environment
+variable can replace an entry but cannot shorten a list, so to change which claims are
+requested, mount your own file over `/app/appsettings.json`.
+
+### Use the library in your own app
+
+```csharp
+builder.Services.AddMiSWIYUverifier(builder.Configuration);
+
+var verifier     = app.Services.GetRequiredService<VerifierApiService>();
+var verification = await verifier.CreateVerificationAsync();
+var qrPng        = QrCodeService.GeneratePng(verification.VerificationDeepLink!);
+
+var result   = await verifier.WaitForVerificationAsync(verification.Id);
+var identity = verifier.ExtractIdentityData(result);
+```
+
+The library does no cryptography of its own — SD-JWT parsing, issuer signatures,
+holder binding and status list checks are all done by the swiyu-verifier service, so
+you always run it alongside.
+
+### Cutting a release
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+`.github/workflows/release.yml` then builds and pushes the image to ghcr.io (tagged
+`1.0.0`, `1.0`, `1` and `latest`) and packs the NuGet package as a build artefact.
+Publishing to nuget.org stays manual, because it needs an account API key and a
+published version can only be unlisted, never replaced:
+
+```bash
+dotnet nuget push artifacts/*.nupkg -k <API_KEY> -s https://api.nuget.org/v3/index.json
+```
 
 ## Configuration
 
