@@ -1,5 +1,6 @@
 # miSWIYUverifier
 
+[![NuGet](https://img.shields.io/nuget/v/miSWIYUverifier?logo=nuget&logoColor=white&label=NuGet)](https://www.nuget.org/packages/miSWIYUverifier) [![NuGet downloads](https://img.shields.io/nuget/dt/miSWIYUverifier?logo=nuget&logoColor=white&label=downloads)](https://www.nuget.org/packages/miSWIYUverifier) [![Container image](https://img.shields.io/badge/ghcr.io-miswiyuverifier-2496ED?logo=docker&logoColor=white)](https://github.com/Mibuw/miSWIYUverifier/pkgs/container/miSWIYUverifier)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE) [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/) [![swiyu Public Beta](https://img.shields.io/badge/swiyu-Public%20Beta-d52b1e.svg)](https://swiyu-admin-ch.github.io/)
 
 A C#/.NET 10 **ASP.NET Core web app** (Minimal API with a browser UI) that verifies the
@@ -339,45 +340,89 @@ swiyu-verifier service and reach it as environment variables at run time; this i
 only ever learns the management URL, and `.dockerignore` keeps `docker/`, `proxy/` and
 `.didtoolbox/` out of the build context entirely.
 
-**What you have to bring yourself**, because it cannot be shared:
+### What you need, and where each value comes from
 
-1. **Your own verifier DID and signing key** (step 2). Request objects are signed with
-   that private key, so someone else's DID is useless to you.
-2. **A public HTTPS endpoint with a publicly trusted certificate** (step 3). The wallet
-   fetches the request object from it and rejects self-signed certificates.
-3. **The swiyu Sandbox Wallet** and a Beta-ID (step 1, and the note at the top).
+Nothing here can be borrowed from this repo or from anyone else — the request objects
+are signed with a private key that is bound to your own registered DID. Everything is
+free and self-service, and all of it is the swiyu **Sandbox**, not production.
 
-### Run the whole stack from published images
+| What | Where you get it | Where it ends up | Secret? |
+|---|---|---|---|
+| **swiyu Sandbox Wallet** | [iOS direct link](https://apps.apple.com/us/app/swiyu-sandbox-wallet/id6771296857) / [Android APK](https://github.com/swiyu-admin-ch/eidch-android-wallet/releases) | your phone | — |
+| **Beta-ID** (the credential you verify) | [bcs.admin.ch/bcs-web](https://www.bcs.admin.ch/bcs-web) — fill the form, scan the QR with the Sandbox Wallet | the wallet | — |
+| **Partner ID + registry access** | swiyu ePortal onboarding (step 2) | used only while onboarding | yes |
+| **Verifier DID** | created locally with the DID toolbox, DID log uploaded to the identifier registry (step 2) | `docker/.env` → `VERIFIER_DID` | no (public) |
+| **Verification method** | the `#auth-key-01` entry of your DID log | `docker/.env` → `DID_VERIFICATION_METHOD` | no (public) |
+| **Signing key** | `.didtoolbox/auth-key-01`, an EC P-256 private key in PEM | `docker/.env` → `SIGNING_KEY` | **yes — back it up, never commit** |
+| **Public HTTPS URL** | your own domain + reverse proxy (step 3) | `docker/.env` → `EXTERNAL_URL` | no |
+| **TLS certificate** | Let's Encrypt or any public CA, via your proxy | the proxy | private key only |
+
+The wallet fetches the request object from `EXTERNAL_URL` over the public internet and
+**rejects self-signed certificates**, so a purely local setup does not work — you need
+a real domain, a tunnel, or a reverse proxy with a trusted certificate.
+
+`docker/.env.example` is the template for all of the above; copy it to `docker/.env`
+and fill it in. That file is excluded by both `.gitignore` and `.dockerignore`.
+
+### Run the whole stack from the published images
+
+The compose file pulls both images and needs nothing but `docker/.env`:
 
 ```bash
-# docker/.env holds EXTERNAL_URL, VERIFIER_DID, DID_VERIFICATION_METHOD, SIGNING_KEY
-cd docker
+curl -O https://raw.githubusercontent.com/Mibuw/miSWIYUverifier/main/docker/docker-compose.published.yml
+curl -o .env https://raw.githubusercontent.com/Mibuw/miSWIYUverifier/main/docker/.env.example
+# edit .env: EXTERNAL_URL, VERIFIER_DID, DID_VERIFICATION_METHOD, SIGNING_KEY
 docker compose -f docker-compose.published.yml up -d
 ```
 
-That starts the web app, the swiyu-verifier and PostgreSQL, publishes the UI on
-`:5070` and binds the management API to loopback only. Settings can be overridden with
-the `SWIYU_` prefix and `__` for nesting, e.g.
+That starts the web app, the swiyu-verifier and PostgreSQL, serves the UI on
+<http://localhost:5070> and binds the management API to loopback only — it is
+unauthenticated and hands out identity data, so never expose it.
+
+To run only the web app against a swiyu-verifier you already have:
+
+```bash
+docker run -d -p 5070:5070 \n  -e SWIYU_VerifierSettings__ManagementUrl=http://your-verifier:8080 \n  ghcr.io/mibuw/miswiyuverifier:latest
+```
+
+Every setting can be overridden with the `SWIYU_` prefix and `__` for nesting, e.g.
 `SWIYU_VerifierSettings__PurposeName`. Lists are the exception — an environment
 variable can replace an entry but cannot shorten a list, so to change which claims are
 requested, mount your own file over `/app/appsettings.json`.
 
 ### Use the library in your own app
 
+```bash
+dotnet add package miSWIYUverifier
+```
+
 ```csharp
+using miSWIYUverifier;            // AddMiSWIYUverifier
+using miSWIYUverifier.Services;   // VerifierApiService, QrCodeService
+
 builder.Services.AddMiSWIYUverifier(builder.Configuration);
 
 var verifier     = app.Services.GetRequiredService<VerifierApiService>();
 var verification = await verifier.CreateVerificationAsync();
-var qrPng        = QrCodeService.GeneratePng(verification.VerificationDeepLink!);
+
+// Show this to the user; the wallet scans it
+var qrPng = QrCodeService.GeneratePng(verification.VerificationDeepLink!);
 
 var result   = await verifier.WaitForVerificationAsync(verification.Id);
 var identity = verifier.ExtractIdentityData(result);
+// identity.GivenName, identity.FamilyName, identity.BirthDate, identity.Portrait, …
+```
+
+The only setting you normally have to provide is where the swiyu-verifier is:
+
+```json
+{ "VerifierSettings": { "ManagementUrl": "http://localhost:8083" } }
 ```
 
 The library does no cryptography of its own — SD-JWT parsing, issuer signatures,
 holder binding and status list checks are all done by the swiyu-verifier service, so
-you always run it alongside.
+you always run it alongside, together with its PostgreSQL. The library needs no
+credentials at all; the DID and signing key belong to that service.
 
 ### Cutting a release
 
