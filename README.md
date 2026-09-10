@@ -386,12 +386,26 @@ git tag v1.0.0 && git push origin v1.0.0
 ```
 
 `.github/workflows/release.yml` then builds and pushes the image to ghcr.io (tagged
-`1.0.0`, `1.0`, `1` and `latest`) and packs the NuGet package as a build artefact.
-Publishing to nuget.org stays manual, because it needs an account API key and a
-published version can only be unlisted, never replaced:
+`1.0.0`, `1.0`, `1` and `latest`), packs the NuGet package, keeps it as a build
+artefact and — if `NUGET_API_KEY` is configured — publishes it to nuget.org.
+
+Set that key once; it must never be committed to a file:
 
 ```bash
-dotnet nuget push artifacts/*.nupkg -k <API_KEY> -s https://api.nuget.org/v3/index.json
+gh secret set NUGET_API_KEY --repo Mibuw/miSWIYUverifier   # prompts for the value
+```
+
+Get it from nuget.org → your profile → **API Keys** → *Create*, with the glob pattern
+`miSWIYUverifier.*` and the *Push* scope. Without the secret the workflow still builds
+and keeps the package, it just does not publish — a fork needs no configuration.
+
+Note that publishing is the one irreversible step here: a version on nuget.org can be
+unlisted, but never replaced or deleted. The container image has no such constraint —
+the next tag simply overwrites `latest`. To publish by hand instead, download the
+`nuget` artefact from the workflow run and:
+
+```bash
+dotnet nuget push <package>.nupkg -k <API_KEY> -s https://api.nuget.org/v3/index.json
 ```
 
 ## Configuration
