@@ -387,27 +387,32 @@ git tag v1.0.0 && git push origin v1.0.0
 
 `.github/workflows/release.yml` then builds and pushes the image to ghcr.io (tagged
 `1.0.0`, `1.0`, `1` and `latest`), packs the NuGet package, keeps it as a build
-artefact and — if `NUGET_API_KEY` is configured — publishes it to nuget.org.
+artefact and publishes it to nuget.org.
 
-Set that key once; it must never be committed to a file:
+Publishing uses **[Trusted Publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing)**,
+so **no API key is stored anywhere**. The workflow requests a GitHub OIDC token,
+`NuGet/login@v1` exchanges it at nuget.org for a key that is short-lived (about an
+hour) and single-use, and nuget.org authorises the push by matching the token's claims
+against the trusted publishing policy registered for the package. That is why the job
+declares `id-token: write` — without it the token request fails silently and the login
+step never gets a usable key.
 
-```bash
-gh secret set NUGET_API_KEY --repo Mibuw/miSWIYUverifier   # prompts for the value
-```
+Two things have to line up, neither of them secret:
 
-Get it from nuget.org → your profile → **API Keys** → *Create*, with the glob pattern
-`miSWIYUverifier*` — note there is no dot, so that it also matches the package
-itself and not only `miSWIYUverifier.<something>` — and the *Push* scope. Without the secret the workflow still builds
-and keeps the package, it just does not publish — a fork needs no configuration.
+1. On nuget.org, the package's **trusted publishing policy** must name this repository
+   *and* the workflow file `release.yml`.
+2. Your nuget.org account name must be available to the workflow:
 
-Note that publishing is the one irreversible step here: a version on nuget.org can be
-unlisted, but never replaced or deleted. The container image has no such constraint —
-the next tag simply overwrites `latest`. To publish by hand instead, download the
-`nuget` artefact from the workflow run and:
+   ```bash
+   gh variable set NUGET_USER --repo Mibuw/miSWIYUverifier
+   ```
 
-```bash
-dotnet nuget push <package>.nupkg -k <API_KEY> -s https://api.nuget.org/v3/index.json
-```
+Without `NUGET_USER` both steps are skipped, so a fork still builds the package and
+keeps it as an artefact without publishing anything.
+
+Publishing is the one irreversible step here: a version on nuget.org can be unlisted,
+but never replaced or deleted. The container image has no such constraint — the next
+tag simply overwrites `latest`.
 
 ## Configuration
 
