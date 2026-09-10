@@ -52,11 +52,11 @@ jobs:
   package:
     name: NuGet package
     runs-on: ubuntu-latest
-    env:
-      # Set with: gh secret set NUGET_API_KEY --repo Mibuw/miSWIYUverifier
-      # Without it the package is still built and kept as an artefact, it is
-      # just not published — so a fork or a clone needs no configuration.
-      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+    permissions:
+      contents: read
+      # Required for Trusted Publishing. Without it the OIDC token request fails
+      # silently and the login step never gets a usable key.
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -80,11 +80,29 @@ jobs:
           name: nuget
           path: artifacts/*
 
+      # Trusted Publishing: exchange the GitHub OIDC token for a nuget.org key that
+      # is short-lived (about an hour) and single-use. No API key is stored in this
+      # repository — nuget.org authorises the push by matching the OIDC claims
+      # against the trusted publishing policy registered for the package, which
+      # names this repository and this workflow file.
+      #
+      # NUGET_USER is your nuget.org account name and is not a secret:
+      #   gh variable set NUGET_USER --repo Mibuw/miSWIYUverifier
+      # Without it both steps are skipped, so a fork still builds the package and
+      # keeps it as an artefact without publishing anything.
+      - name: Log in to nuget.org
+        id: nuget-login
+        if: startsWith(github.ref, 'refs/tags/v') && vars.NUGET_USER != ''
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
       # Publishing is irreversible: a version on nuget.org can be unlisted, never
-      # replaced or deleted. It therefore happens only on a real version tag, and
-      # only when NUGET_API_KEY is configured. --skip-duplicate keeps a re-run of
-      # an existing tag from failing instead of trying to overwrite.
+      # replaced or deleted. --skip-duplicate keeps a re-run of an existing tag
+      # from failing instead of trying to overwrite.
       - name: Publish to nuget.org
-        if: startsWith(github.ref, 'refs/tags/v') && env.NUGET_API_KEY != ''
+        if: startsWith(github.ref, 'refs/tags/v') && vars.NUGET_USER != ''
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           dotnet nuget push artifacts/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
