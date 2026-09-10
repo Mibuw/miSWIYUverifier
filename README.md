@@ -8,13 +8,20 @@ A C#/.NET 10 **ASP.NET Core web app** (Minimal API with a browser UI) that verif
 (OpenID4VP / DCQL) — the Swiss sibling of
 [miEUDIverifier](https://github.com/Mibuw/miEUDIverifier).
 
-The web page shows a QR code. The user scans it with the **swiyu app** (iOS/Android),
+The web page shows a QR code. The user scans it with the **swiyu Sandbox Wallet**
+(iOS/Android),
 confirms the data sharing of their **Beta-ID**, and the page displays the verified
 identity data: given name, family name, date of birth, over-18, sex, nationality,
 place of birth and portrait photo.
 
-Status: **tested end-to-end** with the real wallet + Beta-ID (last verified
-August 2026, swiyu-verifier 4.2.0 / OID4VP 1.0).
+Status: **tested end-to-end on 10 September 2026** — scan, consent, presentation and
+display of the verified data including the portrait, against the swiyu **Sandbox
+Wallet** (iOS 1.18.0) and a Beta-ID issued the same day, with swiyu-verifier 4.2.0
+speaking OID4VP 1.0. Previous full pass: 3 July 2026.
+
+The swiyu sandbox moves fast and breaks verifiers without warning; if this stops
+working, [What broke and when](#what-broke-and-when) lists every incompatibility hit
+so far, and how each was diagnosed.
 
 > ### ⚠️ You need the **swiyu Sandbox Wallet**, not the regular swiyu app
 >
@@ -37,7 +44,7 @@ August 2026, swiyu-verifier 4.2.0 / OID4VP 1.0).
 ## Try it (live demo)
 
 A public test instance is available at **https://miswiyuverifier.mitterbucher.com/** —
-open it, scan the QR code with your swiyu app and confirm.
+open it, scan the QR code with your swiyu Sandbox Wallet and confirm.
 
 > **No guarantee of availability** — this endpoint may be offline at any time.
 > To run your own instance, see the [Quick start](#quick-start) below.
@@ -381,6 +388,38 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
 > The REST API is unauthenticated and intended for internal-network use —
 > do not expose port 5070 publicly for production use, or put your own
 > auth layer in front of it.
+
+## What broke and when
+
+Everything in this table was a *silent* breaking change: nothing on this side was
+touched, the demo simply stopped working. They are recorded here because the symptoms
+are misleading — three of the five report an error that names the wrong culprit.
+
+| Date | Symptom | Actual cause | Fix |
+|---|---|---|---|
+| 2026-08-31 | `invalid_request` on QR scan, wallet went silent | `ResponseMode` was plain `direct_post`; the wallet's `ResponseMode` enum only accepts `direct_post.jwt` and `dc_api.jwt` and decodes it non-optionally, so the whole request object failed to decode | `direct_post.jwt` |
+| 2026-08-31 | same `invalid_request` | verifier 3.0.3 still sent the draft-era `client_id_scheme` plus an unprefixed `client_id`; OID4VP 1.0 makes the scheme a prefix | pin verifier **4.2.0** (`client_id_prefix`) |
+| 2026-08-31 | same `invalid_request` | client metadata declared `jwt_vp` under the draft key `vp_formats`, while the query asked for `dc+sd-jwt` | `vp_formats_supported` with `dc+sd-jwt` |
+| 2026-09-04 | wallet reports "no matching credential", verifier logs a clean `access_denied` | the Public Beta became the **Sandbox** and the regular swiyu Wallet turned production-only | use the **Sandbox Wallet** (see the note at the top) |
+| 2026-09-10 | same "no matching credential" | the Beta-ID `vct` is migrating from `betaid-sdjwt` to `urn:vct:ch.admin.bcs.betaid`; a freshly issued credential carries the new value | list **both** in `VctValues` |
+| 2026-09-10 | `credential_revoked` — "the presented credential was revoked" | **nothing was revoked.** The BCS status list token has no `exp`, which verifier 4.x requires by default; the failed precondition is reported as a revocation | `VERIFICATION_EXPIRY_MUST_BE_PRESENT: "false"` |
+
+Two lessons that would have saved most of the time spent:
+
+- **When pinning a new verifier major version, read `migration-guides/vX-to-vY.md`, not
+  just the release notes.** The missing-`exp` setting is documented there, with BCS
+  named as the affected issuer. Missing it turned a working demo into a "your
+  credential is revoked" false alarm that cost several rounds of re-issuing Beta-IDs.
+- **Read the wallet's source before theorising about it.** Both wallets are open
+  source and the validation is a few dozen readable lines;
+  `gh search code --owner swiyu-admin-ch <term>` found in one step what guessing from
+  release notes had not. The `direct_post` and `vct` causes were both found that way.
+
+The swiyu roadmap post
+[`_posts/2026-05-19-roadmap-swiss-profiles.md`](https://github.com/swiyu-admin-ch/swiyu-admin-ch.github.io/blob/main/_posts/2026-05-19-roadmap-swiss-profiles.md)
+announces these migration steps in advance and is worth watching. As of September 2026
+its remaining item is **signed metadata** enforcement in both wallets — expect that to
+be the next thing to break.
 
 ## Troubleshooting & pitfalls
 
