@@ -13,8 +13,26 @@ confirms the data sharing of their **Beta-ID**, and the page displays the verifi
 identity data: given name, family name, date of birth, over-18, sex, nationality,
 place of birth and portrait photo.
 
-Status: **tested end-to-end** with the real swiyu app + Beta-ID (last verified
+Status: **tested end-to-end** with the real wallet + Beta-ID (last verified
 August 2026, swiyu-verifier 4.2.0 / OID4VP 1.0).
+
+> ### ⚠️ You need the **swiyu Sandbox Wallet**, not the regular swiyu app
+>
+> On **4 September 2026** the Public Beta was renamed **Sandbox**, and the regular
+> **swiyu Wallet became production-only**
+> ([announcement](https://www.eid.admin.ch/en/20260903-public-beta-becomes-sandbox)).
+> This project runs against the sandbox infrastructure
+> (`*.trust-infra.swiyu-int.admin.ch`), so the normal swiyu app can no longer be used
+> with it — it finds no matching credential and answers `access_denied`.
+>
+> - **iOS:** [swiyu Sandbox Wallet](https://apps.apple.com/us/app/swiyu-sandbox-wallet/id6771296857)
+>   — direct link only, it is **not searchable** in the App Store (iOS 17+)
+> - **Android:** APK from the
+>   [wallet releases](https://github.com/swiyu-admin-ch/eidch-android-wallet/releases)
+>   — not on Google Play
+>
+> The Sandbox Wallet starts empty: issue a fresh Beta-ID inside it (step 1). Nothing
+> changes on the verifier side — the sandbox URLs, DIDs and the issuer stay the same.
 
 ## Try it (live demo)
 
@@ -24,7 +42,8 @@ open it, scan the QR code with your swiyu app and confirm.
 > **No guarantee of availability** — this endpoint may be offline at any time.
 > To run your own instance, see the [Quick start](#quick-start) below.
 
-- You need the **swiyu app** with a **Beta-ID** (free, self-issued — see step 1 below).
+- You need the **swiyu Sandbox Wallet** (see the note above — *not* the regular swiyu
+  app) with a **Beta-ID** (free, self-issued — see step 1 below).
 - Every visitor gets **their own verification session** (own QR code); any number of
   verifications can run in parallel. "New request" starts a fresh verification anytime.
 - Note: the Beta-ID contains **made-up pseudo data only** (not an official document).
@@ -79,8 +98,12 @@ open it, scan the QR code with your swiyu app and confirm.
 1. **.NET 10 SDK**
 2. **Docker Desktop**
 3. **Java 21+** (only for the DID toolbox during onboarding, e.g. `winget install EclipseAdoptium.Temurin.21.JRE`)
-4. **swiyu app** on your smartphone (App Store / Play Store: "swiyu")
-5. A **Beta-ID** in the swiyu app (step 1)
+4. **swiyu Sandbox Wallet** on your smartphone — iOS via
+   [direct App Store link](https://apps.apple.com/us/app/swiyu-sandbox-wallet/id6771296857),
+   Android as an APK from the
+   [releases](https://github.com/swiyu-admin-ch/eidch-android-wallet/releases).
+   The regular "swiyu" app from the stores is production-only and will **not** work.
+5. A **Beta-ID** in the Sandbox Wallet (step 1)
 6. A **registered verifier DID** on the swiyu identifier registry (step 2)
 7. A **public HTTPS URL** (step 3 — own domain or tunnel)
 
@@ -96,10 +119,10 @@ swiyu-verifier container (4) and run the web app (5).
 
 Anyone can issue themselves a free Beta-ID (pseudo identity for the Public Beta):
 
-1. Install and set up the swiyu app
+1. Install and set up the **swiyu Sandbox Wallet** (see the note at the top)
 2. Open https://www.bcs.admin.ch/bcs-web
 3. Fill in the form (name, date of birth, … — freely chosen, not an official document)
-4. Scan the displayed QR code with the swiyu app → the Beta-ID is in the wallet
+4. Scan the displayed QR code with the Sandbox Wallet → the Beta-ID is in the wallet
 
 > **Beta-IDs get revoked.** They are Public-Beta test credentials, not documents with
 > a long life. A Beta-ID that worked weeks ago can show up as revoked without any
@@ -388,6 +411,19 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
   does **not** notice changes to an inline `configs:` block; for metadata changes use
   `docker compose up -d --force-recreate <verifier-service>`, otherwise the old
   metadata is served on silently.
+- **Wallet says "no matching ID" / `access_denied` with no description** → the wallet
+  answered properly but had nothing to present. Two causes, in order of likelihood:
+  1. **The wrong wallet app.** Since 4 September 2026 the regular swiyu Wallet is
+     production-only; this project needs the **swiyu Sandbox Wallet** (see the note at
+     the top of this README). This is the one to check first — the server side looks
+     completely healthy, the log shows `Successfully processed verification
+     presentation`, and the only trace is `"error_code": "access_denied"` with a null
+     description.
+  2. **A claim is missing from the credential.** DCQL requires *every* requested claim
+     to be present; one missing claim makes the whole credential non-matching. The
+     Beta-ID form lets fields be left empty, so a hastily issued Beta-ID may lack e.g.
+     `portrait` or `birth_place`. To isolate it, cut `RequestedClaims` down to
+     `given_name` and add entries back until the match breaks.
 - **`credential_revoked` / "Credential is not valid"** → the presented Beta-ID is
   revoked in the status registry. This is a correct rejection, not a bug: everything
   up to and including signature and holder-binding checks succeeded, and only
