@@ -324,7 +324,7 @@ published at all — it is only reachable inside the docker network.
 |---|---|---|
 | `ManagementUrl` | `http://localhost:8083` | Management API of the swiyu-verifier |
 | `PollIntervalSeconds` / `PollTimeoutSeconds` | 2 / 300 | Polling for the result |
-| `VctValues` | `["betaid-sdjwt"]` | Accepted credential types |
+| `VctValues` | `["betaid-sdjwt", "urn:vct:ch.admin.bcs.betaid"]` | Accepted credential types — keep **both**, the Beta-ID vct is mid-migration |
 | `AcceptedIssuerDids` | Beta-ID issuer | Trusted issuers (mandatory!) |
 | `RequestedClaims` | name, birth date, age_over_18, sex, nationality, birth_place, portrait | Requested Beta-ID attributes |
 | `JwtSecuredAuthorizationRequest` | `true` | Signed request object (JAR) |
@@ -419,11 +419,17 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
      completely healthy, the log shows `Successfully processed verification
      presentation`, and the only trace is `"error_code": "access_denied"` with a null
      description.
-  2. **A claim is missing from the credential.** DCQL requires *every* requested claim
+  2. **The `vct` does not match.** The Beta-ID is migrating its vct from
+     `betaid-sdjwt` to `urn:vct:ch.admin.bcs.betaid`, so `VctValues` must list
+     **both** — a credential issued before the switch carries the old value, one
+     issued after it the new one. A freshly issued Beta-ID against a query that only
+     knows `betaid-sdjwt` matches nothing.
+  3. **A claim is missing from the credential.** DCQL requires *every* requested claim
      to be present; one missing claim makes the whole credential non-matching. The
      Beta-ID form lets fields be left empty, so a hastily issued Beta-ID may lack e.g.
      `portrait` or `birth_place`. To isolate it, cut `RequestedClaims` down to
-     `given_name` and add entries back until the match breaks.
+     `given_name` and add entries back until the match breaks — if even `given_name`
+     alone does not match, the cause is `vct` or format, not the claims.
 - **`credential_revoked` / "Credential is not valid"** → the presented Beta-ID is
   revoked in the status registry. This is a correct rejection, not a bug: everything
   up to and including signature and holder-binding checks succeeded, and only

@@ -15,8 +15,19 @@ public class VerifierSettings
 {
     public const string SectionName = "VerifierSettings";
 
-    /// <summary>Accepted verifiable-credential types (vct) if none are configured.</summary>
-    public static readonly string[] DefaultVctValues = { "betaid-sdjwt" };
+    /// <summary>
+    /// Accepted verifiable-credential types (vct) if none are configured.
+    /// The Beta-ID is migrating its vct from "betaid-sdjwt" to
+    /// "urn:vct:ch.admin.bcs.betaid", so both have to be accepted: a credential
+    /// issued before the switch carries the old value, one issued after it the new
+    /// one, and a query listing only one of them matches nothing in the other case
+    /// (the wallet then reports "no suitable credential" and answers access_denied).
+    /// </summary>
+    public static readonly string[] DefaultVctValues =
+    {
+        "betaid-sdjwt",
+        "urn:vct:ch.admin.bcs.betaid",
+    };
 
     /// <summary>Beta-ID issuer of the swiyu Public Beta, used if none are configured.</summary>
     public static readonly string[] DefaultAcceptedIssuerDids =
