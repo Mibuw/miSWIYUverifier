@@ -17,7 +17,7 @@ place of birth and portrait photo.
 
 Status: **tested end-to-end on 27 October 2026** — scan, consent, presentation and
 display of the verified data including the portrait, against the swiyu **Sandbox
-Wallet** with swiyu-verifier 5.0.1 (Trust Protocol 2.0 only), using both Beta-ID
+Wallet** (iOS) with swiyu-verifier 5.0.1 (Trust Protocol 2.0 only), using both Beta-ID
 generations: one from the old `did:tdw` BCS issuer and one issued the same day from
 the new `did:webvh` issuer. Previous full passes: 10 September 2026 (verifier 4.2.0,
 iOS Sandbox Wallet 1.18.0) and 3 July 2026.
