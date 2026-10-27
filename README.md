@@ -15,10 +15,12 @@ confirms the data sharing of their **Beta-ID**, and the page displays the verifi
 identity data: given name, family name, date of birth, over-18, sex, nationality,
 place of birth and portrait photo.
 
-Status: **tested end-to-end on 10 September 2026** — scan, consent, presentation and
+Status: **tested end-to-end on 27 October 2026** — scan, consent, presentation and
 display of the verified data including the portrait, against the swiyu **Sandbox
-Wallet** (iOS 1.18.0) and a Beta-ID issued the same day, with swiyu-verifier 4.2.0
-speaking OID4VP 1.0. Previous full pass: 3 July 2026.
+Wallet** with swiyu-verifier 5.0.1 (Trust Protocol 2.0 only), using both Beta-ID
+generations: one from the old `did:tdw` BCS issuer and one issued the same day from
+the new `did:webvh` issuer. Previous full passes: 10 September 2026 (verifier 4.2.0,
+iOS Sandbox Wallet 1.18.0) and 3 July 2026.
 
 The swiyu sandbox moves fast and breaks verifiers without warning; if this stops
 working, [What broke and when](#what-broke-and-when) lists every incompatibility hit
