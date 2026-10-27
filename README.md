@@ -266,9 +266,9 @@ starts at sign-in: Settings → General → "Start Docker Desktop when you sign 
 Checks:
 - `GET http://localhost:8083/actuator/health` → `UP`
 - Swagger UI: http://localhost:8083/swagger-ui/index.html
-- `GET http://localhost:8083/actuator/info` → must show **version 4.x**!
+- `GET http://localhost:8083/actuator/info` → must show **version 5.x**!
 
-> **The image version is deliberately pinned to `4.2.0`.** Two moving targets make
+> **The image version is deliberately pinned to `5.0.1`.** Three moving targets make
 > the pin necessary:
 > - Up to **2.x** only the old `presentation_definition` format was understood;
 >   DCQL requests were rejected with `"PresentationDefinition must be provided"`.
@@ -280,6 +280,13 @@ Checks:
 >   (`decentralized_identifier:did:webvh:…`). Scanning the QR code against a 3.x
 >   verifier fails immediately with **`invalid_request`**. Fixed in v4.0.0 via the
 >   `client_id_prefix` property (default `decentralized_identifier`).
+> - **4.x** still speaks Trust Protocol 1.0, which the swiyu wallet stops accepting
+>   in mid-November 2026 (wallet 2.0, change dossier
+>   [CD-006](https://swiyu-admin-ch.github.io/change-dossiers/CD-006-Trust-Protocol-2.0/)).
+>   5.x is TP 2.0 only. Since 5.0.0 the management API omits
+>   `credential_subject_data` unless
+>   `ADDITIONAL_AUDIT_INFORMATION_CREDENTIAL_SUBJECT_DATA_ENABLED` is true — the
+>   compose files set it explicitly.
 
 > The management API (port 8083) must **never** be publicly reachable —
 > it is unprotected by default and hands out identity data.
@@ -470,7 +477,7 @@ tag simply overwrites `latest`.
 | `ManagementUrl` | `http://localhost:8083` | Management API of the swiyu-verifier |
 | `PollIntervalSeconds` / `PollTimeoutSeconds` | 2 / 300 | Polling for the result |
 | `VctValues` | `["betaid-sdjwt", "urn:vct:ch.admin.bcs.betaid"]` | Accepted credential types — keep **both**, the Beta-ID vct is mid-migration |
-| `AcceptedIssuerDids` | Beta-ID issuer | Trusted issuers (mandatory!) |
+| `AcceptedIssuerDids` | both Beta-ID issuer DIDs (`did:webvh:QmdPxnNc9…`, `did:tdw:QmPEZ…`) | Trusted issuers (mandatory!) — keep **both**, BCS switched DIDs on 16 September 2026 |
 | `RequestedClaims` | name, birth date, age_over_18, sex, nationality, birth_place, portrait | Requested Beta-ID attributes |
 | `JwtSecuredAuthorizationRequest` | `true` | Signed request object (JAR) |
 | `ResponseMode` | `direct_post.jwt` | Do not change: the swiyu wallet only accepts `direct_post.jwt` and `dc_api.jwt` |
@@ -531,7 +538,7 @@ Invoke-RestMethod "http://localhost:5070/api/verification/$($v.id)/data"
 
 Everything in this table was a *silent* breaking change: nothing on this side was
 touched, the demo simply stopped working. They are recorded here because the symptoms
-are misleading — three of the five report an error that names the wrong culprit.
+are misleading — several of them report an error that names the wrong culprit.
 
 | Date | Symptom | Actual cause | Fix |
 |---|---|---|---|
@@ -541,6 +548,8 @@ are misleading — three of the five report an error that names the wrong culpri
 | 2026-09-04 | wallet reports "no matching credential", verifier logs a clean `access_denied` | the Public Beta became the **Sandbox** and the regular swiyu Wallet turned production-only | use the **Sandbox Wallet** (see the note at the top) |
 | 2026-09-10 | same "no matching credential" | the Beta-ID `vct` is migrating from `betaid-sdjwt` to `urn:vct:ch.admin.bcs.betaid`; a freshly issued credential carries the new value | list **both** in `VctValues` |
 | 2026-09-10 | `credential_revoked` — "the presented credential was revoked" | **nothing was revoked.** The BCS status list token has no `exp`, which verifier 4.x requires by default; the failed precondition is reported as a revocation | `VERIFICATION_EXPIRY_MUST_BE_PRESENT: "false"` |
+| 2026-09-16 | `issuer_not_accepted` for freshly issued Beta-IDs (found on 27 October, before anyone hit it) | the BCS release of 16 September issues Beta-IDs from a **new `did:webvh` DID**; `AcceptedIssuerDids` only listed the old `did:tdw` one. Announced only in a [blog post](https://github.com/swiyu-admin-ch/swiyu-admin-ch.github.io/blob/main/_posts/2026-09-04-new-bcs-release-september.md) — the cookbooks still show the old DID | list **both** DIDs in `AcceptedIssuerDids` |
+| mid-Nov. 2026 | (announced) wallet 2.0 rejects Trust Protocol 1.0 artefacts | verifier 4.x still implements TP 1.0 | pin verifier **5.0.1**, opt in to `credential_subject_data` |
 
 Two lessons that would have saved most of the time spent:
 
@@ -557,13 +566,19 @@ The swiyu roadmap post
 [`_posts/2026-05-19-roadmap-swiss-profiles.md`](https://github.com/swiyu-admin-ch/swiyu-admin-ch.github.io/blob/main/_posts/2026-05-19-roadmap-swiss-profiles.md)
 announces these migration steps in advance and is worth watching. As of September 2026
 its remaining item is **signed metadata** enforcement in both wallets — expect that to
-be the next thing to break.
+be the next thing to break. Since then the
+[change dossiers](https://github.com/swiyu-admin-ch/swiyu-admin-ch.github.io/tree/main/_change-dossiers)
+have become the more precise source: each one lists what breaks, for which component,
+from when. Next on the list: wallet 2.0 and the strict Sandbox/production split in
+mid-November 2026 (CD-001, CD-006), and the removal of `Ed25519VerificationKey`
+verification methods in Q1/2027 (CD-007; this verifier's DID uses `JsonWebKey2020`
+and is not affected).
 
 ## Troubleshooting & pitfalls
 
 - **`"PresentationDefinition must be provided"`** → a 2.x image is running.
   `docker compose pull && docker compose up -d`; check the version via `/actuator/info`.
-  The image in the compose file is pinned to 4.2.0 (see above).
+  The image in the compose file is pinned to 5.0.1 (see above).
 - **Wallet aborts right when scanning with `invalid_request`** → the authorization
   request is not OID4VP 1.0 compliant. Three causes, all fixed in this repo:
   1. `ResponseMode` is plain **`direct_post`**. The wallet's `ResponseMode` enum
@@ -651,8 +666,14 @@ be the next thing to break.
   `https://<domain>/oid4vp/api/openid-client-metadata.json`.
   After changing `EXTERNAL_URL`, restart the container and click "New request".
 - **`issuer_not_accepted`** → the Beta-ID issuer DID in `AcceptedIssuerDids` does
-  not match. Check the current value in the
-  [Beta-ID cookbook](https://swiyu-admin-ch.github.io/cookbooks/how-to-use-beta-id/).
+  not match. BCS changed its DID on 16 September 2026 (`did:tdw:QmPEZ…` →
+  `did:webvh:QmdPxnNc9…`); both are configured. If it changes again, the
+  [release announcements](https://swiyu-admin-ch.github.io/release-announcements/)
+  are more current than the cookbooks, which still showed the old DID in
+  October 2026.
+- **Verification succeeds but no data is shown** → verifier 5.x without
+  `ADDITIONAL_AUDIT_INFORMATION_CREDENTIAL_SUBJECT_DATA_ENABLED: "true"`: the
+  management API then omits `credential_subject_data`.
 - **404 while polling / QR expired** → verifications expire after
   `VERIFICATION_TTL_SEC` (900 s); the app's polling timeout is 300 s.
   Click "New request".

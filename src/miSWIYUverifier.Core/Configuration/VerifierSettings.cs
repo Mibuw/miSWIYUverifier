@@ -29,9 +29,18 @@ public class VerifierSettings
         "urn:vct:ch.admin.bcs.betaid",
     };
 
-    /// <summary>Beta-ID issuer of the swiyu Public Beta, used if none are configured.</summary>
+    /// <summary>
+    /// Beta-ID issuers of the swiyu Sandbox, used if none are configured.
+    /// The Beta Credential Service switched to a new did:webvh DID with its release
+    /// of 16 September 2026; Beta-IDs issued since then carry it as issuer, older
+    /// ones the did:tdw DID. Both are accepted so that either still verifies — a
+    /// list with only the old one rejects every fresh Beta-ID (issuer_not_accepted),
+    /// and since swiyu-verifier 5.x the list also becomes the DCQL
+    /// trusted_authorities the wallet filters its credentials by.
+    /// </summary>
     public static readonly string[] DefaultAcceptedIssuerDids =
     {
+        "did:webvh:QmdPxnNc9MzGYZ6qcHuvi8YpDVYWW7mmefnCTPcKapNEL5:identifier-reg.trust-infra.swiyu-int.admin.ch:api:v1:did:5f8a3c95-1772-4ebf-ada0-c88bafb258e1",
         "did:tdw:QmPEZPhDFR4nEYSFK5bMnvECqdpf1tPTPJuWs9QrMjCumw:identifier-reg.trust-infra.swiyu-int.admin.ch:api:v1:did:9a5559f0-b81c-4368-a170-e7b4ae424527",
     };
 

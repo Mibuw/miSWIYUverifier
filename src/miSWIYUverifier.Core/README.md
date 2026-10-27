@@ -41,7 +41,7 @@ var identity = verifier.ExtractIdentityData(result);
   "VerifierSettings": {
     "ManagementUrl": "http://localhost:8083",
     "VctValues": [ "betaid-sdjwt", "urn:vct:ch.admin.bcs.betaid" ],
-    "AcceptedIssuerDids": [ "did:tdw:…" ],
+    "AcceptedIssuerDids": [ "did:webvh:…", "did:tdw:…" ],
     "RequestedClaims": [ "given_name", "family_name", "birth_date", "portrait" ],
     "ResponseMode": "direct_post.jwt"
   }

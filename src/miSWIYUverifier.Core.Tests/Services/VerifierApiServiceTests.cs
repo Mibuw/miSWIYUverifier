@@ -77,8 +77,15 @@ public class VerifierApiServiceTests
             .ToList();
         claimNames.Should().Contain(new[] { "given_name", "family_name", "birth_date", "portrait" });
 
-        // Trust: without accepted_issuer_dids nothing would be accepted (since v2.2.0)
-        root.GetProperty("accepted_issuer_dids").GetArrayLength().Should().BeGreaterThan(0);
+        // Trust: without accepted_issuer_dids nothing would be accepted (since v2.2.0).
+        // Both BCS DIDs are needed: Beta-IDs issued since 16 September 2026 carry the
+        // did:webvh one, older ones the did:tdw one.
+        var issuerDids = root.GetProperty("accepted_issuer_dids").EnumerateArray()
+            .Select(v => v.GetString())
+            .ToList();
+        issuerDids.Should().HaveCount(2);
+        issuerDids.Should().Contain(d => d!.StartsWith("did:webvh:QmdPxnNc9MzGYZ6qcHuvi8YpDVYWW7mmefnCTPcKapNEL5:"));
+        issuerDids.Should().Contain(d => d!.StartsWith("did:tdw:QmPEZPhDFR4nEYSFK5bMnvECqdpf1tPTPJuWs9QrMjCumw:"));
         root.GetProperty("jwt_secured_authorization_request").GetBoolean().Should().BeTrue();
         // direct_post.jwt is mandatory: the wallet's ResponseMode enum has no case
         // for plain direct_post and fails to decode the whole request object.

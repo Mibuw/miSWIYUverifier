@@ -36,8 +36,9 @@ services:
     # "client_id_scheme": "did" plus an unprefixed client_id — the wallet rejects
     # that when scanning the QR code with "invalid_request". Since 4.0.0 the
     # client_id is prefixed instead (client_id_prefix, default
-    # "decentralized_identifier").
-    image: ghcr.io/swiyu-admin-ch/swiyu-verifier:4.2.0
+    # "decentralized_identifier"). 5.x drops Trust Protocol 1.0, which the
+    # wallet stops accepting in mid-November 2026.
+    image: ghcr.io/swiyu-admin-ch/swiyu-verifier:5.0.1
     container_name: miSWIYUverifier-verifier
     restart: unless-stopped
     depends_on:
@@ -62,6 +63,10 @@ services:
       # real revocation. The v3-to-v4 migration guide names BCS explicitly as the
       # issuer this applies to.
       VERIFICATION_EXPIRY_MUST_BE_PRESENT: "false"
+      # Since 5.0.0 the management API returns credential_subject_data only when
+      # this is enabled. The 5.0.1 default is true, but the changelog claims
+      # false — set it explicitly, the web app has nothing to show without it.
+      ADDITIONAL_AUDIT_INFORMATION_CREDENTIAL_SUBJECT_DATA_ENABLED: "true"
       # Persistence
       POSTGRES_USER: "verifier_user"
       POSTGRES_PASSWORD: "secret"
